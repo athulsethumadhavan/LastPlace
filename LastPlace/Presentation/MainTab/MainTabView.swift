@@ -2,9 +2,6 @@
 //  MainTabView.swift
 //  LastPlace
 //
-//  Hosts the four tab feature stacks. Each tab is a `NavigationStack` bound to
-//  its own coordinator's path so pushes stay scoped per tab.
-//
 
 import SwiftUI
 
@@ -26,7 +23,10 @@ struct MainTabView: View {
                 get: { coordinator.homeCoordinator.path },
                 set: { coordinator.homeCoordinator.path = $0 }
             )) {
-                HomeView(coordinator: coordinator.homeCoordinator)
+                HomeView(
+                    coordinator: coordinator.homeCoordinator,
+                    viewModel: coordinator.homeCoordinator.homeViewModel
+                )
             }
             .tabItem { Label(MainTab.home.title, systemImage: MainTab.home.symbolName) }
             .tag(MainTab.home)

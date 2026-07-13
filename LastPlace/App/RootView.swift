@@ -4,7 +4,8 @@
 //
 //  Reads `AppCoordinator.flow` and mounts the matching root scene. Individual
 //  scenes are built through the container so nothing here constructs its own
-//  dependencies.
+//  dependencies. Injects `ImageStorageService` into the SwiftUI environment so
+//  `AsyncStoredImage` works anywhere below.
 //
 
 import SwiftUI
@@ -21,10 +22,8 @@ struct RootView: View {
                     .transition(.opacity)
 
             case .onboarding:
-                OnboardingView(
-                    onFinished: { coordinator.completeOnboarding() }
-                )
-                .transition(.opacity)
+                OnboardingView(onFinished: { coordinator.completeOnboarding() })
+                    .transition(.opacity)
 
             case .main:
                 MainTabView(container: container)
@@ -35,6 +34,7 @@ struct RootView: View {
                     .transition(.opacity)
             }
         }
+        .environment(\.imageStorage, container.imageStorage)
         .animation(.easeInOut(duration: 0.25), value: coordinator.flow)
         .task { await coordinator.start() }
     }
