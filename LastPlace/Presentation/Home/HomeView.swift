@@ -20,6 +20,7 @@ struct HomeView: View {
             .toolbar { toolbarContent }
             .navigationDestination(for: HomeRoute.self) { route in
                 coordinator.destination(for: route)
+                    .toolbar(.hidden, for: .tabBar)
             }
             .task {
                 if case .idle = viewModel.state { await viewModel.load() }
