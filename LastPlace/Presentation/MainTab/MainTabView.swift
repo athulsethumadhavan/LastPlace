@@ -35,7 +35,10 @@ struct MainTabView: View {
                 get: { coordinator.searchCoordinator.path },
                 set: { coordinator.searchCoordinator.path = $0 }
             )) {
-                SearchView(coordinator: coordinator.searchCoordinator)
+                SearchView(
+                    coordinator: coordinator.searchCoordinator,
+                    viewModel: coordinator.searchCoordinator.searchViewModel
+                )
             }
             .tabItem { Label(MainTab.search.title, systemImage: MainTab.search.symbolName) }
             .tag(MainTab.search)
