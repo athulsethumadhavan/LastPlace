@@ -26,6 +26,19 @@ final class HomeCoordinator {
     @ObservationIgnored
     private(set) lazy var homeViewModel: HomeViewModel = makeRootViewModel()
 
+    /// Weak handle to the currently-visible room detail view model, so flows
+    /// pushed above room detail (scan flow, edit room, etc.) can force it to
+    /// reload after a mutation. Weak so it nils out when the user pops back
+    /// past room detail.
+    @ObservationIgnored
+    weak var activeRoomDetailViewModel: RoomDetailViewModel?
+
+    /// Same rationale as `activeRoomDetailViewModel` — lets flows pushed above
+    /// item detail (update-location) force it to reload without a `.task`
+    /// re-fire.
+    @ObservationIgnored
+    weak var activeItemDetailViewModel: ItemDetailViewModel?
+
     init(container: AppDependencyContainer) {
         self.container = container
     }
@@ -46,6 +59,20 @@ final class HomeCoordinator {
         Task { await homeViewModel.refresh() }
     }
 
+    /// Reloads the currently-visible RoomDetail screen, if any. No-op when
+    /// room detail isn't in the stack. Same rationale as `refreshHome`: pops
+    /// back to room detail don't re-run its `.task`.
+    func refreshRoomDetail() {
+        guard let viewModel = activeRoomDetailViewModel else { return }
+        Task { await viewModel.load() }
+    }
+
+    /// Reloads the currently-visible ItemDetail screen, if any.
+    func refreshItemDetail() {
+        guard let viewModel = activeItemDetailViewModel else { return }
+        Task { await viewModel.load() }
+    }
+
     // MARK: View-model factories
 
     private func makeRootViewModel() -> HomeViewModel {
@@ -60,7 +87,7 @@ final class HomeCoordinator {
     }
 
     func makeRoomDetailViewModel(roomID: UUID) -> RoomDetailViewModel {
-        RoomDetailViewModel(
+        let viewModel = RoomDetailViewModel(
             roomID: roomID,
             fetchRoom: DefaultFetchRoomUseCase(roomRepository: container.roomRepository),
             fetchItems: DefaultFetchItemsForRoomUseCase(itemRepository: container.itemRepository),
@@ -72,6 +99,8 @@ final class HomeCoordinator {
             ),
             logger: container.logger
         )
+        activeRoomDetailViewModel = viewModel
+        return viewModel
     }
 
     func makeCreateRoomViewModel(homeID: UUID) -> CreateRoomViewModel {
@@ -79,6 +108,43 @@ final class HomeCoordinator {
             homeID: homeID,
             createRoom: DefaultCreateRoomUseCase(
                 roomRepository: container.roomRepository,
+                imageStorage: container.imageStorage
+            ),
+            logger: container.logger
+        )
+    }
+
+    func makeItemDetailViewModel(itemID: UUID) -> ItemDetailViewModel {
+        let viewModel = ItemDetailViewModel(
+            itemID: itemID,
+            fetchDetail: DefaultFetchItemDetailUseCase(
+                itemRepository: container.itemRepository,
+                roomRepository: container.roomRepository,
+                snapshotRepository: container.snapshotRepository
+            ),
+            deleteItem: DefaultDeleteItemUseCase(
+                itemRepository: container.itemRepository,
+                snapshotRepository: container.snapshotRepository,
+                imageStorage: container.imageStorage
+            ),
+            toggleImportance: DefaultToggleItemImportanceUseCase(itemRepository: container.itemRepository),
+            logger: container.logger
+        )
+        activeItemDetailViewModel = viewModel
+        return viewModel
+    }
+
+    func makeUpdateItemLocationViewModel(itemID: UUID) -> UpdateItemLocationViewModel {
+        UpdateItemLocationViewModel(
+            itemID: itemID,
+            fetchDetail: DefaultFetchItemDetailUseCase(
+                itemRepository: container.itemRepository,
+                roomRepository: container.roomRepository,
+                snapshotRepository: container.snapshotRepository
+            ),
+            updateLocation: DefaultUpdateItemLocationUseCase(
+                itemRepository: container.itemRepository,
+                snapshotRepository: container.snapshotRepository,
                 imageStorage: container.imageStorage
             ),
             logger: container.logger
@@ -106,27 +172,41 @@ final class HomeCoordinator {
                 symbolName: "pencil"
             )
 
-        case .itemDetail:
-            FeaturePlaceholderView(
-                title: "Item Detail",
-                subtitle: "Item detail ships in a later phase.",
-                symbolName: "shippingbox"
+        case .itemDetail(let itemID):
+            ItemDetailView(
+                navigator: self,
+                viewModel: makeItemDetailViewModel(itemID: itemID)
             )
 
-        case .updateItemLocation:
-            FeaturePlaceholderView(
-                title: "Update Location",
-                subtitle: "Location updates ship in a later phase.",
-                symbolName: "mappin.and.ellipse"
+        case .updateItemLocation(let itemID):
+            UpdateItemLocationView(
+                navigator: self,
+                viewModel: makeUpdateItemLocationViewModel(itemID: itemID)
             )
 
-        case .scanRoom:
-            FeaturePlaceholderView(
-                title: "Scan Room",
-                subtitle: "The guided scan flow ships in Phase 5.",
-                symbolName: "camera.viewfinder"
+        case .scanRoom(let roomID):
+            ScanRootView(
+                homeCoordinator: self,
+                coordinator: ScanCoordinator(roomID: roomID, container: container)
             )
         }
+    }
+}
+
+extension HomeCoordinator: ItemDetailNavigator {
+    func pushUpdateItemLocation(itemID: UUID) {
+        push(.updateItemLocation(itemID: itemID))
+    }
+
+    func popTop() { popLast() }
+
+    /// Item-flow mutations can affect the Home dashboard (recent + important
+    /// lists), the Room Detail item grid, and the current item detail screen
+    /// (when an update-location save returns).
+    func refreshAfterItemMutation() {
+        refreshItemDetail()
+        refreshRoomDetail()
+        refreshHome()
     }
 }
 

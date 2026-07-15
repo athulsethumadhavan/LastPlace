@@ -17,6 +17,7 @@ struct ChecklistsListView: View {
         .navigationTitle("Checklists")
         .navigationDestination(for: ChecklistRoute.self) { route in
             coordinator.destination(for: route)
+                .toolbar(.hidden, for: .tabBar)
         }
     }
 }

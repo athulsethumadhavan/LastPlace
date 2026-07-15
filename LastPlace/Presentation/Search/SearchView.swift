@@ -17,6 +17,7 @@ struct SearchView: View {
         .navigationTitle("Search")
         .navigationDestination(for: SearchRoute.self) { route in
             coordinator.destination(for: route)
+                .toolbar(.hidden, for: .tabBar)
         }
     }
 }

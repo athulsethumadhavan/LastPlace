@@ -33,6 +33,7 @@ struct SettingsView: View {
         .navigationTitle("Settings")
         .navigationDestination(for: SettingsRoute.self) { route in
             coordinator.destination(for: route)
+                .toolbar(.hidden, for: .tabBar)
         }
     }
 }
