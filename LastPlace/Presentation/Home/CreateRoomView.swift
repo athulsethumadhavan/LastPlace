@@ -32,10 +32,6 @@ struct CreateRoomView: View {
         .navigationTitle("New Room")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button("Cancel") { coordinator.popLast() }
-                    .accessibilityLabel("Cancel room creation")
-            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Save") { saveTapped() }
                     .disabled(!viewModel.canSave)
