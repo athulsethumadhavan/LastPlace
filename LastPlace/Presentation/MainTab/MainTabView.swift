@@ -47,7 +47,10 @@ struct MainTabView: View {
                 get: { coordinator.checklistCoordinator.path },
                 set: { coordinator.checklistCoordinator.path = $0 }
             )) {
-                ChecklistsListView(coordinator: coordinator.checklistCoordinator)
+                ChecklistsListView(
+                    coordinator: coordinator.checklistCoordinator,
+                    viewModel: coordinator.checklistCoordinator.checklistsListViewModel
+                )
             }
             .tabItem { Label(MainTab.checklists.title, systemImage: MainTab.checklists.symbolName) }
             .tag(MainTab.checklists)

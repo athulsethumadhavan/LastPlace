@@ -51,7 +51,13 @@ final class SearchCoordinator {
         )
     }
 
+    /// Reuses the currently-active item detail view model when the requested
+    /// item matches it, instead of always constructing a new one — see the
+    /// matching note in `HomeCoordinator.makeItemDetailViewModel` for why.
     func makeItemDetailViewModel(itemID: UUID) -> ItemDetailViewModel {
+        if let existing = activeItemDetailViewModel, existing.itemID == itemID {
+            return existing
+        }
         let viewModel = ItemDetailViewModel(
             itemID: itemID,
             fetchDetail: DefaultFetchItemDetailUseCase(

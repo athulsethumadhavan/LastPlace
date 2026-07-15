@@ -73,6 +73,7 @@ enum ChecklistEntryMapper {
             checklistID: entity.checklistID,
             title: entity.title,
             linkedItemID: entity.linkedItemID,
+            locationDescription: entity.locationDescription,
             isCompleted: entity.isCompleted,
             sortOrder: entity.sortOrder
         )
@@ -84,6 +85,7 @@ enum ChecklistEntryMapper {
             checklistID: entry.checklistID,
             title: entry.title,
             linkedItemID: entry.linkedItemID,
+            locationDescription: entry.locationDescription,
             isCompleted: entry.isCompleted,
             sortOrder: entry.sortOrder
         )
@@ -93,6 +95,7 @@ enum ChecklistEntryMapper {
         entity.checklistID = entry.checklistID
         entity.title = entry.title
         entity.linkedItemID = entry.linkedItemID
+        entity.locationDescription = entry.locationDescription
         entity.isCompleted = entry.isCompleted
         entity.sortOrder = entry.sortOrder
     }

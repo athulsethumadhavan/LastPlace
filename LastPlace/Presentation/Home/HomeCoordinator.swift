@@ -86,7 +86,13 @@ final class HomeCoordinator {
         )
     }
 
+    /// Reuses the currently-active room detail view model when the requested
+    /// room matches it, instead of always constructing a new one. See the
+    /// note on `makeItemDetailViewModel` for why this guard matters.
     func makeRoomDetailViewModel(roomID: UUID) -> RoomDetailViewModel {
+        if let existing = activeRoomDetailViewModel, existing.roomID == roomID {
+            return existing
+        }
         let viewModel = RoomDetailViewModel(
             roomID: roomID,
             fetchRoom: DefaultFetchRoomUseCase(roomRepository: container.roomRepository),
@@ -114,7 +120,19 @@ final class HomeCoordinator {
         )
     }
 
+    /// Reuses the currently-active item detail view model when the requested
+    /// item matches it, instead of always constructing a new one. Without
+    /// this, SwiftUI re-invoking `destination(for:)` for a route already
+    /// resident in the path (e.g. because `path` mutates when
+    /// update-location gets pushed on top of it) would silently build a
+    /// throwaway `ItemDetailViewModel` and repoint `activeItemDetailViewModel`
+    /// at it, while the screen actually on screen stays bound to the
+    /// original instance via its own `@State`. `refreshItemDetail()` would
+    /// then reload the wrong, invisible view model.
     func makeItemDetailViewModel(itemID: UUID) -> ItemDetailViewModel {
+        if let existing = activeItemDetailViewModel, existing.itemID == itemID {
+            return existing
+        }
         let viewModel = ItemDetailViewModel(
             itemID: itemID,
             fetchDetail: DefaultFetchItemDetailUseCase(
