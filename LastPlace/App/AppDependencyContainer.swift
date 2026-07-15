@@ -28,6 +28,8 @@ final class AppDependencyContainer {
     let logger: AppLogger
     let onboardingPreferences: OnboardingPreferences
     let appearanceSettings: AppearanceSettingsStore
+    let appLockSettings: AppLockSettingsStore
+    let biometricAuthenticator: BiometricAuthenticator
 
     /// Camera capture wraps AVCaptureSession, which shouldn't be shared across
     /// concurrent scans. The container vends a fresh instance per scan session
@@ -42,6 +44,8 @@ final class AppDependencyContainer {
         logger: AppLogger,
         onboardingPreferences: OnboardingPreferences,
         appearanceSettings: AppearanceSettingsStore,
+        appLockSettings: AppLockSettingsStore,
+        biometricAuthenticator: BiometricAuthenticator,
         homeRepository: HomeRepository,
         roomRepository: RoomRepository,
         itemRepository: ItemRepository,
@@ -57,6 +61,8 @@ final class AppDependencyContainer {
         self.logger = logger
         self.onboardingPreferences = onboardingPreferences
         self.appearanceSettings = appearanceSettings
+        self.appLockSettings = appLockSettings
+        self.biometricAuthenticator = biometricAuthenticator
         self.homeRepository = homeRepository
         self.roomRepository = roomRepository
         self.itemRepository = itemRepository
@@ -79,6 +85,8 @@ final class AppDependencyContainer {
             logger: OSAppLogger(),
             onboardingPreferences: UserDefaultsOnboardingPreferences(),
             appearanceSettings: AppearanceSettingsStore(),
+            appLockSettings: AppLockSettingsStore(),
+            biometricAuthenticator: LAContextBiometricAuthenticator(),
             homeRepository: SwiftDataHomeRepository(modelContainer: modelContainer),
             roomRepository: SwiftDataRoomRepository(modelContainer: modelContainer),
             itemRepository: SwiftDataItemRepository(modelContainer: modelContainer),
@@ -101,6 +109,10 @@ final class AppDependencyContainer {
             appearanceSettings: AppearanceSettingsStore(
                 defaults: UserDefaults(suiteName: "com.lastplace.preview") ?? .standard
             ),
+            appLockSettings: AppLockSettingsStore(
+                defaults: UserDefaults(suiteName: "com.lastplace.preview") ?? .standard
+            ),
+            biometricAuthenticator: MockBiometricAuthenticator(),
             homeRepository: SwiftDataHomeRepository(modelContainer: modelContainer),
             roomRepository: SwiftDataRoomRepository(modelContainer: modelContainer),
             itemRepository: SwiftDataItemRepository(modelContainer: modelContainer),

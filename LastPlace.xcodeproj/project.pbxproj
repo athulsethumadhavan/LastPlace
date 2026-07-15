@@ -416,6 +416,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LastPlace/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "LastPlace uses the camera to scan rooms and recognize the items inside them.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "LastPlace uses Face ID to keep your rooms and items locked when the app isn't in use.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -451,6 +452,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LastPlace/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "LastPlace uses the camera to scan rooms and recognize the items inside them.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "LastPlace uses Face ID to keep your rooms and items locked when the app isn't in use.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

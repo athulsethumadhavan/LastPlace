@@ -13,6 +13,7 @@ import SwiftUI
 struct RootView: View {
     let container: AppDependencyContainer
     @Bindable var coordinator: AppCoordinator
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         Group {
@@ -23,6 +24,10 @@ struct RootView: View {
 
             case .onboarding:
                 OnboardingView(onFinished: { coordinator.completeOnboarding() })
+                    .transition(.opacity)
+
+            case .locked:
+                LockView(coordinator: coordinator)
                     .transition(.opacity)
 
             case .main:
@@ -38,6 +43,15 @@ struct RootView: View {
         .preferredColorScheme(container.appearanceSettings.mode.colorScheme)
         .animation(.easeInOut(duration: 0.25), value: coordinator.flow)
         .task { await coordinator.start() }
+        .onChange(of: scenePhase) { _, newPhase in
+            // Re-arm the lock screen the moment the app leaves the
+            // foreground, not just on relaunch — otherwise the app switcher
+            // snapshot (and a quick foreground/background flip) would expose
+            // content the lock setting is meant to hide.
+            if newPhase == .background {
+                coordinator.lockIfNeeded()
+            }
+        }
     }
 }
 
