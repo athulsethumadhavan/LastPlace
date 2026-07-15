@@ -27,6 +27,7 @@ final class AppDependencyContainer {
     let objectDetection: ObjectDetectionService
     let logger: AppLogger
     let onboardingPreferences: OnboardingPreferences
+    let appearanceSettings: AppearanceSettingsStore
 
     /// Camera capture wraps AVCaptureSession, which shouldn't be shared across
     /// concurrent scans. The container vends a fresh instance per scan session
@@ -40,6 +41,7 @@ final class AppDependencyContainer {
         objectDetection: ObjectDetectionService,
         logger: AppLogger,
         onboardingPreferences: OnboardingPreferences,
+        appearanceSettings: AppearanceSettingsStore,
         homeRepository: HomeRepository,
         roomRepository: RoomRepository,
         itemRepository: ItemRepository,
@@ -54,6 +56,7 @@ final class AppDependencyContainer {
         self.objectDetection = objectDetection
         self.logger = logger
         self.onboardingPreferences = onboardingPreferences
+        self.appearanceSettings = appearanceSettings
         self.homeRepository = homeRepository
         self.roomRepository = roomRepository
         self.itemRepository = itemRepository
@@ -75,6 +78,7 @@ final class AppDependencyContainer {
             objectDetection: VisionObjectDetectionService(),
             logger: OSAppLogger(),
             onboardingPreferences: UserDefaultsOnboardingPreferences(),
+            appearanceSettings: AppearanceSettingsStore(),
             homeRepository: SwiftDataHomeRepository(modelContainer: modelContainer),
             roomRepository: SwiftDataRoomRepository(modelContainer: modelContainer),
             itemRepository: SwiftDataItemRepository(modelContainer: modelContainer),
@@ -94,6 +98,9 @@ final class AppDependencyContainer {
             objectDetection: MockObjectDetectionService(),
             logger: OSAppLogger(),
             onboardingPreferences: InMemoryOnboardingPreferences(completed: onboardingCompleted),
+            appearanceSettings: AppearanceSettingsStore(
+                defaults: UserDefaults(suiteName: "com.lastplace.preview") ?? .standard
+            ),
             homeRepository: SwiftDataHomeRepository(modelContainer: modelContainer),
             roomRepository: SwiftDataRoomRepository(modelContainer: modelContainer),
             itemRepository: SwiftDataItemRepository(modelContainer: modelContainer),

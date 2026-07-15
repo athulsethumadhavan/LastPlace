@@ -120,30 +120,23 @@ struct RoomDetailView: View {
     }
 
     private func header(for room: Room) -> some View {
-        VStack(spacing: 12) {
-            AsyncStoredImage(path: room.coverImagePath, contentMode: .fill, placeholderSymbol: room.iconName)
-                .frame(height: 180)
-                .frame(maxWidth: .infinity)
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        HStack(spacing: 12) {
+            Image(systemName: room.iconName)
+                .font(.title2)
+                .foregroundStyle(.tint)
+                .frame(width: 44, height: 44)
+                .background(Color(.tertiarySystemGroupedBackground), in: Circle())
+                .accessibilityHidden(true)
 
-            HStack(spacing: 12) {
-                Image(systemName: room.iconName)
-                    .font(.title2)
-                    .foregroundStyle(.tint)
-                    .frame(width: 44, height: 44)
-                    .background(Color(.tertiarySystemGroupedBackground), in: Circle())
-                    .accessibilityHidden(true)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(room.name)
-                        .font(.title2.weight(.semibold))
-                        .accessibilityAddTraits(.isHeader)
-                    Text("Updated \(room.updatedAt.formatted(.relative(presentation: .named)))")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
+            VStack(alignment: .leading, spacing: 2) {
+                Text(room.name)
+                    .font(.title2.weight(.semibold))
+                    .accessibilityAddTraits(.isHeader)
+                Text("Updated \(room.updatedAt.formatted(.relative(presentation: .named)))")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
+            Spacer()
         }
     }
 

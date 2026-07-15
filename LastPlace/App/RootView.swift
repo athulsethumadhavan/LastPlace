@@ -35,6 +35,7 @@ struct RootView: View {
             }
         }
         .environment(\.imageStorage, container.imageStorage)
+        .preferredColorScheme(container.appearanceSettings.mode.colorScheme)
         .animation(.easeInOut(duration: 0.25), value: coordinator.flow)
         .task { await coordinator.start() }
     }

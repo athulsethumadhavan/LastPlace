@@ -68,11 +68,28 @@ struct MainTabView: View {
 
     @MainActor
     private static func makeCoordinator(container: AppDependencyContainer) -> MainTabCoordinator {
-        MainTabCoordinator(
-            homeCoordinator: HomeCoordinator(container: container),
-            searchCoordinator: SearchCoordinator(container: container),
-            checklistCoordinator: ChecklistCoordinator(container: container),
-            settingsCoordinator: SettingsCoordinator(container: container)
+        let homeCoordinator = HomeCoordinator(container: container)
+        let searchCoordinator = SearchCoordinator(container: container)
+        let checklistCoordinator = ChecklistCoordinator(container: container)
+        let settingsCoordinator = SettingsCoordinator(container: container)
+
+        // "Delete All Data" in Settings mutates state the other three tabs
+        // have already loaded and cached in their own coordinator-owned view
+        // models; none of them would otherwise notice until the user forced
+        // a pull-to-refresh.
+        settingsCoordinator.onAllDataDeleted = { [weak homeCoordinator, weak searchCoordinator, weak checklistCoordinator] in
+            homeCoordinator?.refreshHome()
+            checklistCoordinator?.refreshChecklists()
+            if let searchCoordinator {
+                Task { await searchCoordinator.searchViewModel.refresh() }
+            }
+        }
+
+        return MainTabCoordinator(
+            homeCoordinator: homeCoordinator,
+            searchCoordinator: searchCoordinator,
+            checklistCoordinator: checklistCoordinator,
+            settingsCoordinator: settingsCoordinator
         )
     }
 }

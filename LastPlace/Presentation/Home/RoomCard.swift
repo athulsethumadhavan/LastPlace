@@ -13,7 +13,7 @@ struct RoomCard: View {
         Button(action: action) {
             AppCard {
                 VStack(alignment: .leading, spacing: 0) {
-                    coverImage
+                    iconBanner
                     VStack(alignment: .leading, spacing: 4) {
                         Text(room.name)
                             .font(.headline)
@@ -34,20 +34,19 @@ struct RoomCard: View {
         .accessibilityHint("Opens the room detail.")
     }
 
-    private var coverImage: some View {
-        ZStack(alignment: .topLeading) {
-            AsyncStoredImage(path: room.coverImagePath, contentMode: .fill, placeholderSymbol: room.iconName)
-                .frame(height: 100)
-                .clipped()
-
+    /// Rooms don't have a cover photo pipeline yet — `coverImagePath` is
+    /// always nil today (see `CreateRoomViewModel`/`EditRoomViewModel`) — so
+    /// this is a single icon on a tinted field rather than an `AsyncStoredImage`
+    /// pretending to be a photo with a duplicate icon badge on top of it.
+    private var iconBanner: some View {
+        ZStack {
+            Color(.tertiarySystemGroupedBackground)
             Image(systemName: room.iconName)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white)
-                .padding(8)
-                .background(.ultraThinMaterial, in: Circle())
-                .padding(8)
+                .font(.title)
+                .foregroundStyle(.tint)
                 .accessibilityHidden(true)
         }
+        .frame(height: 72)
     }
 
     private var updatedText: String {

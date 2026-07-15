@@ -4,8 +4,7 @@
 //
 //  Owns the Home tab's `NavigationPath`, vends view models constructed from
 //  the shared `AppDependencyContainer`, and builds destination views for each
-//  route. Room detail / create room ship in Phase 4; item detail, edit-room,
-//  update-location and scan flow are placeholders until later phases.
+//  route.
 //
 
 import SwiftUI
@@ -152,6 +151,18 @@ final class HomeCoordinator {
         return viewModel
     }
 
+    func makeEditRoomViewModel(roomID: UUID) -> EditRoomViewModel {
+        EditRoomViewModel(
+            roomID: roomID,
+            fetchRoom: DefaultFetchRoomUseCase(roomRepository: container.roomRepository),
+            updateRoom: DefaultUpdateRoomUseCase(
+                roomRepository: container.roomRepository,
+                imageStorage: container.imageStorage
+            ),
+            logger: container.logger
+        )
+    }
+
     func makeUpdateItemLocationViewModel(itemID: UUID) -> UpdateItemLocationViewModel {
         UpdateItemLocationViewModel(
             itemID: itemID,
@@ -183,11 +194,10 @@ final class HomeCoordinator {
         case .createRoom:
             CreateRoomHost(coordinator: self)
 
-        case .editRoom:
-            FeaturePlaceholderView(
-                title: "Edit Room",
-                subtitle: "Editing room details ships in a later phase.",
-                symbolName: "pencil"
+        case .editRoom(let roomID):
+            EditRoomView(
+                coordinator: self,
+                viewModel: makeEditRoomViewModel(roomID: roomID)
             )
 
         case .itemDetail(let itemID):
