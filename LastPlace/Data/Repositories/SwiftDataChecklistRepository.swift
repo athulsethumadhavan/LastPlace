@@ -37,17 +37,32 @@ actor SwiftDataChecklistRepository: ChecklistRepository {
         }
     }
 
+    /// Without `@Attribute(.unique)` (unsupported by CloudKit-backed
+    /// SwiftData) nothing at the persistence layer stops a second insert
+    /// with the same `id` from creating a duplicate row, so this checks
+    /// first and updates in place if one is already there.
     func create(_ checklist: Checklist) async throws -> Checklist {
         let validated = try checklist.validated()
+        if let existing = try findChecklistEntity(id: validated.id) {
+            ChecklistMapper.apply(validated, to: existing)
+            try saveOrThrow()
+            return ChecklistMapper.toDomain(existing)
+        }
         let entity = ChecklistMapper.toEntity(validated)
         modelContext.insert(entity)
         try saveOrThrow()
         return ChecklistMapper.toDomain(entity)
     }
 
+    /// Same dedupe-guard reasoning as `create` above.
     func addEntry(_ entry: ChecklistEntry) async throws -> ChecklistEntry {
         let validated = try entry.validated()
         _ = try fetchChecklistEntity(id: validated.checklistID)
+        if let existing = try findEntryEntity(id: validated.id) {
+            ChecklistEntryMapper.apply(validated, to: existing)
+            try saveOrThrow()
+            return ChecklistEntryMapper.toDomain(existing)
+        }
         let entity = ChecklistEntryMapper.toEntity(validated)
         modelContext.insert(entity)
         try saveOrThrow()
@@ -134,6 +149,30 @@ actor SwiftDataChecklistRepository: ChecklistRepository {
             return entity
         } catch let error as RepositoryError {
             throw error
+        } catch {
+            throw RepositoryError.persistenceFailed(underlying: error.localizedDescription)
+        }
+    }
+
+    /// Plain existence check used by `create`'s dedupe guard — `nil` means
+    /// not found, unlike `fetchChecklistEntity` which throws `.notFound`.
+    private func findChecklistEntity(id: UUID) throws -> ChecklistEntity? {
+        let target = id
+        let descriptor = FetchDescriptor<ChecklistEntity>(predicate: #Predicate { $0.id == target })
+        do {
+            return try modelContext.fetch(descriptor).first
+        } catch {
+            throw RepositoryError.persistenceFailed(underlying: error.localizedDescription)
+        }
+    }
+
+    /// Plain existence check used by `addEntry`'s dedupe guard — `nil` means
+    /// not found, unlike `fetchEntryEntity` which throws `.notFound`.
+    private func findEntryEntity(id: UUID) throws -> ChecklistEntryEntity? {
+        let target = id
+        let descriptor = FetchDescriptor<ChecklistEntryEntity>(predicate: #Predicate { $0.id == target })
+        do {
+            return try modelContext.fetch(descriptor).first
         } catch {
             throw RepositoryError.persistenceFailed(underlying: error.localizedDescription)
         }
