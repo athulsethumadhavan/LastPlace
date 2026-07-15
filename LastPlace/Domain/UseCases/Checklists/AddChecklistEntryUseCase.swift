@@ -9,12 +9,22 @@ struct AddChecklistEntryInput: Sendable {
     let checklistID: UUID
     let title: String
     let linkedItemID: UUID?
+    /// Free-text location for an unlinked entry. Ignored when `linkedItemID`
+    /// is set, since a linked entry shows its item's live location instead.
+    let locationDescription: String?
     let sortOrder: Int
 
-    init(checklistID: UUID, title: String, linkedItemID: UUID? = nil, sortOrder: Int = 0) {
+    init(
+        checklistID: UUID,
+        title: String,
+        linkedItemID: UUID? = nil,
+        locationDescription: String? = nil,
+        sortOrder: Int = 0
+    ) {
         self.checklistID = checklistID
         self.title = title
         self.linkedItemID = linkedItemID
+        self.locationDescription = locationDescription
         self.sortOrder = sortOrder
     }
 }
@@ -31,6 +41,7 @@ struct DefaultAddChecklistEntryUseCase: AddChecklistEntryUseCase {
             checklistID: input.checklistID,
             title: input.title,
             linkedItemID: input.linkedItemID,
+            locationDescription: input.linkedItemID == nil ? input.locationDescription : nil,
             isCompleted: false,
             sortOrder: input.sortOrder
         )

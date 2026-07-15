@@ -35,7 +35,10 @@ struct MainTabView: View {
                 get: { coordinator.searchCoordinator.path },
                 set: { coordinator.searchCoordinator.path = $0 }
             )) {
-                SearchView(coordinator: coordinator.searchCoordinator)
+                SearchView(
+                    coordinator: coordinator.searchCoordinator,
+                    viewModel: coordinator.searchCoordinator.searchViewModel
+                )
             }
             .tabItem { Label(MainTab.search.title, systemImage: MainTab.search.symbolName) }
             .tag(MainTab.search)
@@ -44,7 +47,10 @@ struct MainTabView: View {
                 get: { coordinator.checklistCoordinator.path },
                 set: { coordinator.checklistCoordinator.path = $0 }
             )) {
-                ChecklistsListView(coordinator: coordinator.checklistCoordinator)
+                ChecklistsListView(
+                    coordinator: coordinator.checklistCoordinator,
+                    viewModel: coordinator.checklistCoordinator.checklistsListViewModel
+                )
             }
             .tabItem { Label(MainTab.checklists.title, systemImage: MainTab.checklists.symbolName) }
             .tag(MainTab.checklists)
