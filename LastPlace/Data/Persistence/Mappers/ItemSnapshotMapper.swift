@@ -31,4 +31,17 @@ enum ItemSnapshotMapper {
             sourceRaw: snapshot.source.rawValue
         )
     }
+
+    /// Used by the repository's create-path dedupe guard: if a snapshot with
+    /// this `id` already exists (e.g. a CloudKit-merge race), overwrite it in
+    /// place instead of inserting a second row.
+    static func apply(_ snapshot: ItemSnapshot, to entity: ItemSnapshotEntity) {
+        entity.itemID = snapshot.itemID
+        entity.roomID = snapshot.roomID
+        entity.imagePath = snapshot.imagePath
+        entity.locationDescription = snapshot.locationDescription
+        entity.capturedAt = snapshot.capturedAt
+        entity.confidence = snapshot.confidence
+        entity.sourceRaw = snapshot.source.rawValue
+    }
 }

@@ -38,6 +38,13 @@ final class SettingsCoordinator {
         AppearanceViewModel(store: container.appearanceSettings)
     }
 
+    private func makeSecurityViewModel() -> SecurityViewModel {
+        SecurityViewModel(
+            store: container.appLockSettings,
+            biometricAuthenticator: container.biometricAuthenticator
+        )
+    }
+
     private func makeDataManagementViewModel() -> DataManagementViewModel {
         DataManagementViewModel(
             fetchSummary: DefaultFetchDataSummaryUseCase(
@@ -73,6 +80,8 @@ final class SettingsCoordinator {
             PermissionsView()
         case .appearance:
             AppearanceView(viewModel: makeAppearanceViewModel())
+        case .security:
+            SecurityView(viewModel: makeSecurityViewModel())
         case .dataManagement:
             DataManagementView(coordinator: self, viewModel: makeDataManagementViewModel())
         }

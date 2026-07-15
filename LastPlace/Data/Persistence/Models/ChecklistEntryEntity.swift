@@ -7,19 +7,24 @@
 //  migration plan. Only meaningful for unlinked entries; see the domain
 //  entity's doc comment.
 //
+//  No `@Attribute(.unique)` — CloudKit-backed SwiftData doesn't support
+//  unique constraints, so uniqueness on `id` is enforced at the repository
+//  layer (fetch-before-insert) instead. Every non-optional property has a
+//  default value, which CloudKit's schema requires.
+//
 
 import Foundation
 import SwiftData
 
 @Model
 final class ChecklistEntryEntity {
-    @Attribute(.unique) var id: UUID
-    var checklistID: UUID
-    var title: String
+    var id: UUID = UUID()
+    var checklistID: UUID = UUID()
+    var title: String = ""
     var linkedItemID: UUID?
     var locationDescription: String?
-    var isCompleted: Bool
-    var sortOrder: Int
+    var isCompleted: Bool = false
+    var sortOrder: Int = 0
 
     init(
         id: UUID,

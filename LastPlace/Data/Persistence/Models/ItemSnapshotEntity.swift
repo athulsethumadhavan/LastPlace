@@ -2,20 +2,25 @@
 //  ItemSnapshotEntity.swift
 //  LastPlace
 //
+//  No `@Attribute(.unique)` — CloudKit-backed SwiftData doesn't support
+//  unique constraints, so uniqueness on `id` is enforced at the repository
+//  layer (fetch-before-insert) instead. Every non-optional property has a
+//  default value, which CloudKit's schema requires.
+//
 
 import Foundation
 import SwiftData
 
 @Model
 final class ItemSnapshotEntity {
-    @Attribute(.unique) var id: UUID
-    var itemID: UUID
-    var roomID: UUID
+    var id: UUID = UUID()
+    var itemID: UUID = UUID()
+    var roomID: UUID = UUID()
     var imagePath: String?
-    var locationDescription: String
-    var capturedAt: Date
-    var confidence: Double
-    var sourceRaw: String
+    var locationDescription: String = ""
+    var capturedAt: Date = Date()
+    var confidence: Double = 0
+    var sourceRaw: String = ""
 
     init(
         id: UUID,

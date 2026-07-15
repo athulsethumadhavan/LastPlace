@@ -2,24 +2,29 @@
 //  StoredItemEntity.swift
 //  LastPlace
 //
+//  No `@Attribute(.unique)` — CloudKit-backed SwiftData doesn't support
+//  unique constraints, so uniqueness on `id` is enforced at the repository
+//  layer (fetch-before-insert) instead. Every non-optional property has a
+//  default value, which CloudKit's schema requires.
+//
 
 import Foundation
 import SwiftData
 
 @Model
 final class StoredItemEntity {
-    @Attribute(.unique) var id: UUID
-    var roomID: UUID
-    var name: String
+    var id: UUID = UUID()
+    var roomID: UUID = UUID()
+    var name: String = ""
     /// Raw value of `ItemCategory` — stored as `String` so #Predicate can match on it.
-    var categoryRaw: String
+    var categoryRaw: String = ""
     var notes: String?
     var imagePath: String?
-    var locationDescription: String
-    var lastSeenAt: Date
-    var createdAt: Date
-    var updatedAt: Date
-    var isImportant: Bool
+    var locationDescription: String = ""
+    var lastSeenAt: Date = Date()
+    var createdAt: Date = Date()
+    var updatedAt: Date = Date()
+    var isImportant: Bool = false
 
     init(
         id: UUID,

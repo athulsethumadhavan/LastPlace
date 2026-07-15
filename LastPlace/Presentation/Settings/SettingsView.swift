@@ -20,6 +20,9 @@ struct SettingsView: View {
                 SettingsRow(title: "Appearance", symbol: "paintbrush") {
                     coordinator.push(.appearance)
                 }
+                SettingsRow(title: "Security", symbol: "lock.shield") {
+                    coordinator.push(.security)
+                }
             }
             Section("Data") {
                 SettingsRow(title: "Data Management", symbol: "externaldrive") {

@@ -8,8 +8,17 @@ import SwiftData
 
 @ModelActor
 actor SwiftDataScanRepository: ScanRepository {
+    /// Without `@Attribute(.unique)` (unsupported by CloudKit-backed
+    /// SwiftData) nothing at the persistence layer stops a second insert
+    /// with the same `id` from creating a duplicate row, so this checks
+    /// first and updates in place if one is already there.
     func startSession(roomID: UUID) async throws -> ScanSession {
         let session = ScanSession(roomID: roomID)
+        if let existing = try findEntity(id: session.id) {
+            ScanSessionMapper.apply(session, to: existing)
+            try saveOrThrow()
+            return ScanSessionMapper.toDomain(existing)
+        }
         let entity = ScanSessionMapper.toEntity(session)
         modelContext.insert(entity)
         try saveOrThrow()
@@ -56,6 +65,18 @@ actor SwiftDataScanRepository: ScanRepository {
             return entity
         } catch let error as RepositoryError {
             throw error
+        } catch {
+            throw RepositoryError.persistenceFailed(underlying: error.localizedDescription)
+        }
+    }
+
+    /// Plain existence check used by `startSession`'s dedupe guard — `nil`
+    /// means not found, unlike `fetchEntity` which throws `.notFound`.
+    private func findEntity(id: UUID) throws -> ScanSessionEntity? {
+        let target = id
+        let descriptor = FetchDescriptor<ScanSessionEntity>(predicate: #Predicate { $0.id == target })
+        do {
+            return try modelContext.fetch(descriptor).first
         } catch {
             throw RepositoryError.persistenceFailed(underlying: error.localizedDescription)
         }
