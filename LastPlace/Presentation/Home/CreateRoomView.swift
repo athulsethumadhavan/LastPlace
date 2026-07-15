@@ -60,7 +60,7 @@ struct CreateRoomView: View {
             columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 6),
             spacing: 8
         ) {
-            ForEach(CreateRoomViewModel.iconSuggestions, id: \.self) { symbol in
+            ForEach(Room.iconSuggestions, id: \.self) { symbol in
                 IconChoice(
                     symbol: symbol,
                     isSelected: viewModel.iconName == symbol,
@@ -78,27 +78,5 @@ struct CreateRoomView: View {
                 coordinator.refreshHome()
             }
         }
-    }
-}
-
-private struct IconChoice: View {
-    let symbol: String
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .font(.title3)
-                .foregroundStyle(isSelected ? Color.white : Color.primary)
-                .frame(width: 44, height: 44)
-                .background(
-                    Circle()
-                        .fill(isSelected ? Color.accentColor : Color(.tertiarySystemGroupedBackground))
-                )
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(symbol)
-        .accessibilityAddTraits(isSelected ? [.isSelected, .isButton] : .isButton)
     }
 }

@@ -9,13 +9,6 @@ import Observation
 @Observable
 @MainActor
 final class CreateRoomViewModel {
-    static let iconSuggestions: [String] = [
-        "house", "bed.double", "sofa", "fork.knife", "cooktop",
-        "bathtub", "shower", "washer", "dryer", "tent", "chair.lounge",
-        "books.vertical", "desktopcomputer", "briefcase", "shippingbox",
-        "car", "figure.walk", "leaf", "tree"
-    ]
-
     var name: String = ""
     var iconName: String = Room.defaultIconName
     var isSaving: Bool = false

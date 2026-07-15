@@ -17,7 +17,6 @@ struct HomeView: View {
     var body: some View {
         content
             .navigationTitle(title)
-            .toolbar { toolbarContent }
             .navigationDestination(for: HomeRoute.self) { route in
                 coordinator.destination(for: route)
                     .toolbar(.hidden, for: .tabBar)
@@ -26,6 +25,35 @@ struct HomeView: View {
                 if case .idle = viewModel.state { await viewModel.load() }
             }
             .refreshable { await viewModel.refresh() }
+            .overlay(alignment: .bottomTrailing) {
+                if showsFloatingAddRoomButton {
+                    addRoomButton
+                }
+            }
+    }
+
+    /// Hidden while the empty state is showing — that screen already has its
+    /// own prominent "Create a room" CTA, so a second "add" affordance would
+    /// just be clutter.
+    private var showsFloatingAddRoomButton: Bool {
+        if case .loaded(let content) = viewModel.state { return !content.isFullyEmpty }
+        return false
+    }
+
+    private var addRoomButton: some View {
+        Button {
+            coordinator.push(.createRoom)
+        } label: {
+            Image(systemName: "plus")
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(.white)
+                .frame(width: 56, height: 56)
+                .background(Color.accentColor, in: Circle())
+                .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
+        }
+        .accessibilityLabel("Add a room")
+        .padding(.trailing, 20)
+        .padding(.bottom, 16)
     }
 
     private var title: String {
@@ -48,18 +76,6 @@ struct HomeView: View {
             } else {
                 dashboard(for: content)
             }
-        }
-    }
-
-    @ToolbarContentBuilder
-    private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .topBarTrailing) {
-            Button {
-                coordinator.push(.createRoom)
-            } label: {
-                Image(systemName: "plus")
-            }
-            .accessibilityLabel("Add a room")
         }
     }
 
@@ -88,7 +104,10 @@ struct HomeView: View {
                 roomsSection(content.rooms)
             }
             .padding(.horizontal, 20)
-            .padding(.vertical, 16)
+            .padding(.top, 16)
+            // Extra bottom clearance so the floating add-room button doesn't
+            // sit on top of the last row once scrolled to the bottom.
+            .padding(.bottom, 96)
         }
     }
 
