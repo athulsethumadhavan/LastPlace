@@ -5,6 +5,7 @@
 
 import Foundation
 import SwiftData
+import WidgetKit
 
 @ModelActor
 actor SwiftDataHomeRepository: HomeRepository {
@@ -33,8 +34,10 @@ actor SwiftDataHomeRepository: HomeRepository {
             let now = Date()
             let entity = HomeEntity(id: UUID(), name: "My Home", createdAt: now, updatedAt: now)
             modelContext.insert(entity)
-            try modelContext.save()
+            try saveOrThrow()
             return HomeMapper.toDomain(entity)
+        } catch let error as RepositoryError {
+            throw error
         } catch {
             throw RepositoryError.persistenceFailed(underlying: error.localizedDescription)
         }
@@ -46,19 +49,15 @@ actor SwiftDataHomeRepository: HomeRepository {
     /// first and updates in place if one is already there.
     func create(name: String) async throws -> Home {
         let draft = try Home(name: name).validated()
-        do {
-            if let existing = try findEntity(id: draft.id) {
-                HomeMapper.apply(draft, to: existing)
-                try modelContext.save()
-                return HomeMapper.toDomain(existing)
-            }
-            let entity = HomeMapper.toEntity(draft)
-            modelContext.insert(entity)
-            try modelContext.save()
-            return HomeMapper.toDomain(entity)
-        } catch {
-            throw RepositoryError.persistenceFailed(underlying: error.localizedDescription)
+        if let existing = try findEntity(id: draft.id) {
+            HomeMapper.apply(draft, to: existing)
+            try saveOrThrow()
+            return HomeMapper.toDomain(existing)
         }
+        let entity = HomeMapper.toEntity(draft)
+        modelContext.insert(entity)
+        try saveOrThrow()
+        return HomeMapper.toDomain(entity)
     }
 
     func rename(homeID: UUID, to name: String) async throws -> Home {
@@ -68,22 +67,14 @@ actor SwiftDataHomeRepository: HomeRepository {
         domain.updatedAt = Date()
         let validated = try domain.validated()
         HomeMapper.apply(validated, to: entity)
-        do {
-            try modelContext.save()
-        } catch {
-            throw RepositoryError.persistenceFailed(underlying: error.localizedDescription)
-        }
+        try saveOrThrow()
         return HomeMapper.toDomain(entity)
     }
 
     func delete(homeID: UUID) async throws {
         let entity = try fetchEntity(id: homeID)
         modelContext.delete(entity)
-        do {
-            try modelContext.save()
-        } catch {
-            throw RepositoryError.persistenceFailed(underlying: error.localizedDescription)
-        }
+        try saveOrThrow()
     }
 
     private func fetchEntity(id: UUID) throws -> HomeEntity {
@@ -107,5 +98,18 @@ actor SwiftDataHomeRepository: HomeRepository {
         let target = id
         let descriptor = FetchDescriptor<HomeEntity>(predicate: #Predicate { $0.id == target })
         return try modelContext.fetch(descriptor).first
+    }
+
+    /// Reloading widget timelines on every save is a bit coarse (any home
+    /// rename triggers it too, not just changes the widgets actually show),
+    /// but `WidgetCenter` calls are cheap and system-throttled, so precision
+    /// isn't worth chasing here.
+    private func saveOrThrow() throws {
+        do {
+            try modelContext.save()
+        } catch {
+            throw RepositoryError.persistenceFailed(underlying: error.localizedDescription)
+        }
+        WidgetCenter.shared.reloadAllTimelines()
     }
 }

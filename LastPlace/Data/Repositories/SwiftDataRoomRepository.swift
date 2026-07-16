@@ -5,6 +5,7 @@
 
 import Foundation
 import SwiftData
+import WidgetKit
 
 @ModelActor
 actor SwiftDataRoomRepository: RoomRepository {
@@ -84,11 +85,15 @@ actor SwiftDataRoomRepository: RoomRepository {
         }
     }
 
+    /// Reloading widget timelines on every save is a bit coarse, but
+    /// `WidgetCenter` calls are cheap and system-throttled, so precision
+    /// isn't worth chasing here.
     private func saveOrThrow() throws {
         do {
             try modelContext.save()
         } catch {
             throw RepositoryError.persistenceFailed(underlying: error.localizedDescription)
         }
+        WidgetCenter.shared.reloadAllTimelines()
     }
 }

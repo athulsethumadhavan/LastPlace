@@ -9,6 +9,7 @@
 
 import Foundation
 import SwiftData
+import WidgetKit
 
 @ModelActor
 actor SwiftDataItemRepository: ItemRepository {
@@ -170,11 +171,16 @@ actor SwiftDataItemRepository: ItemRepository {
         }
     }
 
+    /// Reloading widget timelines on every save is a bit coarse, but
+    /// `WidgetCenter` calls are cheap and system-throttled, so precision
+    /// isn't worth chasing here — the Recent Items widget wants to catch
+    /// every one of these anyway.
     private func saveOrThrow() throws {
         do {
             try modelContext.save()
         } catch {
             throw RepositoryError.persistenceFailed(underlying: error.localizedDescription)
         }
+        WidgetCenter.shared.reloadAllTimelines()
     }
 }
