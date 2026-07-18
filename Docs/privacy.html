@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — LastPlace</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="site-nav">
+  <div class="wrap">
+    <a class="brand" href="/">LastPlace</a>
+    <div class="nav-links">
+      <a href="support.html">Support</a>
+      <a href="privacy.html">Privacy</a>
+    </div>
+  </div>
+</nav>
+
+<main class="doc">
+  <div class="wrap">
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated: <!-- fill in the date you publish this --></p>
+
+    <p>LastPlace ("the app") is developed by Athul Sethumadhavan ("we," "us," "our"). This policy explains what happens to your information when you use LastPlace. The short version: LastPlace has no server of its own, doesn't run ads or analytics, and doesn't sell or share your data with anyone — everything you save stays on your device and in your own private iCloud account.</p>
+
+    <h2>Information we do not collect</h2>
+    <p>We don't operate any backend servers, and we don't receive, store, or have access to any of the rooms, items, photos, notes, or checklists you create in LastPlace. We don't use advertising or analytics SDKs, and we don't track you across other apps or websites.</p>
+
+    <h2>How your data is stored and synced</h2>
+    <p>Everything you add to LastPlace — rooms, items, photos, locations, notes, and checklists — is stored in a private database in your own iCloud account, using Apple's CloudKit framework. That data syncs across your own devices the same way Apple's own apps (like Notes or Reminders) sync: through your iCloud account, encrypted in transit and at rest by Apple, and never visible to us. If you're not signed into iCloud, or have iCloud sync turned off, LastPlace stores everything locally on your device instead.</p>
+
+    <h2>On-device photo recognition</h2>
+    <p>When you scan a room, LastPlace uses Apple's Vision framework to help identify objects in the photos you take. This recognition happens entirely on your device — the photos and the detection results never leave your phone to be processed anywhere else.</p>
+
+    <h2>Camera access</h2>
+    <p>LastPlace asks for camera access only to let you photograph items while scanning a room. The camera is never active in the background, and photos you capture are stored the same way as the rest of your data (privately, in your own iCloud account or locally on-device).</p>
+
+    <h2>Face ID / Touch ID</h2>
+    <p>If you turn on the optional app lock in Settings, LastPlace uses Face ID or Touch ID (via Apple's LocalAuthentication framework) to confirm it's you before showing your rooms and items again after the app has been in the background. This check happens entirely on-device through Apple's system frameworks — we never receive your biometric data, and neither does LastPlace itself; the app only receives a yes/no answer from iOS.</p>
+
+    <h2>Family Find (sharing with family members)</h2>
+    <p>LastPlace includes an optional feature that lets you share a read-only, on-demand snapshot of your rooms and item locations with people you invite — for example, a partner or family member who needs to be able to look up where something is. This works through Apple's CloudKit sharing, which means:</p>
+    <ul>
+      <li>Sharing is invite-only. Nobody gets access unless you specifically invite them.</li>
+      <li>The people you invite can look up what you've shared; they can't edit it.</li>
+      <li>You can stop sharing, or remove someone's access, at any time from Settings.</li>
+      <li>This data travels through Apple's CloudKit infrastructure the same way an invite to a shared Apple Note or Photos album would — it doesn't pass through any server we operate.</li>
+    </ul>
+
+    <h2>Siri and Shortcuts</h2>
+    <p>If you use Siri to find an item or add something to a checklist, that request is handled by Apple's Siri and App Intents frameworks and passed directly to LastPlace on your device. We don't receive a copy of your voice requests.</p>
+
+    <h2>Data retention and deletion</h2>
+    <p>Your data stays in LastPlace for as long as you keep the app installed and signed into iCloud. You can permanently delete everything LastPlace has stored — every room, item, checklist, and photo — at any time from Settings → Data Management → Delete All Data. Because we never held a copy of your data in the first place, there's nothing for us to separately delete on our end.</p>
+
+    <h2>Children's privacy</h2>
+    <p>LastPlace is not directed at children and we do not knowingly collect information from children. Because the app doesn't collect or transmit data to us at all, this is consistent regardless of who uses the app.</p>
+
+    <h2>Changes to this policy</h2>
+    <p>If this policy changes, we'll update the "Last updated" date above and post the revised version at this same address.</p>
+
+    <h2>Contact us</h2>
+    <p>Questions about this policy or how LastPlace handles data can be sent to <a href="mailto:athulsethumadhavan@gmail.com">athulsethumadhavan@gmail.com</a>.</p>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <a href="index.html">Home</a>
+    <a href="support.html">Support</a>
+  </div>
+</footer>
+
+</body>
+</html>
