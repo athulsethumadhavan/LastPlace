@@ -107,6 +107,7 @@ struct HomeView: View {
                 action: { coordinator.push(.createRoom) }
             )
         )
+        .frame(maxHeight: .infinity, alignment: .center)
         .padding(.top, 32)
     }
 
@@ -175,6 +176,7 @@ struct HomeView: View {
                         action: { coordinator.push(.createRoom) }
                     )
                 )
+                .frame(maxHeight: .infinity, alignment: .center)
                 .padding(.vertical, 8)
             } else {
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
