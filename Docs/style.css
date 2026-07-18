@@ -1,0 +1,206 @@
+@import url('https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+:root {
+  --bg: #F2F4F9;
+  --surface: #E4EAF7;
+  --text: #161A21;
+  --text2: rgba(22,26,33,.62);
+  --text3: rgba(22,26,33,.4);
+  --divider: rgba(22,26,33,.12);
+  --accent: #3E7BFA;
+  --accent-soft: rgba(62,123,250,.12);
+  --shadow: 0 2px 6px rgba(20,30,50,.08), 0 14px 28px rgba(20,30,50,.10);
+  --radius: 20px;
+  --max-width: 760px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  font-family: 'Lora', Georgia, serif;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  margin: 0 0 0.5em;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.wrap {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+nav.site-nav {
+  padding: 28px 0;
+  border-bottom: 1px solid var(--divider);
+}
+
+nav.site-nav .wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.brand {
+  font-family: 'Lora', Georgia, serif;
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--text);
+}
+
+.brand:hover { text-decoration: none; }
+
+.nav-links a {
+  margin-left: 24px;
+  color: var(--text2);
+  font-size: 14.5px;
+  font-weight: 500;
+}
+
+.nav-links a:hover { color: var(--accent); text-decoration: none; }
+
+header.hero {
+  padding: 72px 0 56px;
+  text-align: center;
+}
+
+.icon-plate {
+  width: 88px;
+  height: 88px;
+  margin: 0 auto 28px;
+  border-radius: 22px;
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow);
+}
+
+.icon-plate svg { width: 40px; height: 40px; }
+
+header.hero h1 {
+  font-size: 40px;
+  line-height: 1.15;
+}
+
+header.hero p.tagline {
+  font-size: 18px;
+  color: var(--text2);
+  max-width: 480px;
+  margin: 0 auto 32px;
+}
+
+.badges {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.badge-link img { height: 48px; }
+
+section.features {
+  padding: 40px 0 64px;
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 560px) {
+  .feature-grid { grid-template-columns: 1fr; }
+  header.hero h1 { font-size: 30px; }
+}
+
+.feature-card {
+  background: var(--bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 22px 20px;
+}
+
+.feature-card .emoji {
+  font-size: 22px;
+  margin-bottom: 10px;
+  display: block;
+}
+
+.feature-card h3 {
+  font-size: 16.5px;
+  margin-bottom: 6px;
+}
+
+.feature-card p {
+  font-size: 14px;
+  color: var(--text2);
+  margin: 0;
+}
+
+section.privacy-callout {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 32px;
+  margin-bottom: 64px;
+  text-align: center;
+}
+
+section.privacy-callout h2 { font-size: 22px; }
+section.privacy-callout p { color: var(--text2); max-width: 520px; margin: 0 auto; }
+
+main.doc {
+  padding: 56px 0 80px;
+}
+
+main.doc h1 { font-size: 32px; margin-bottom: 4px; }
+main.doc .updated { color: var(--text3); font-size: 13.5px; margin-bottom: 32px; }
+main.doc h2 { font-size: 19px; margin-top: 36px; }
+main.doc p, main.doc li { color: var(--text2); font-size: 15.5px; }
+main.doc ul { padding-left: 20px; }
+
+.faq-item {
+  border-bottom: 1px solid var(--divider);
+  padding: 20px 0;
+}
+
+.faq-item h3 {
+  font-size: 16px;
+  margin-bottom: 6px;
+}
+
+.faq-item p {
+  color: var(--text2);
+  font-size: 14.5px;
+  margin: 0;
+}
+
+.contact-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 28px;
+  margin-top: 32px;
+  text-align: center;
+}
+
+footer.site-footer {
+  border-top: 1px solid var(--divider);
+  padding: 28px 0;
+  text-align: center;
+  color: var(--text3);
+  font-size: 13px;
+}
+
+footer.site-footer a { margin: 0 8px; }

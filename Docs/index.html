@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LastPlace — Remember where things live</title>
+<meta name="description" content="LastPlace is the home inventory app that remembers where everything lives. Scan a room, save the spot, and find anything in seconds — all synced privately through your own iCloud.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="site-nav">
+  <div class="wrap">
+    <a class="brand" href="/">LastPlace</a>
+    <div class="nav-links">
+      <a href="support.html">Support</a>
+      <a href="privacy.html">Privacy</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="icon-plate">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#3E7BFA" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-7.1 7-12a7 7 0 1 0-14 0c0 4.9 7 12 7 12Z"></path><circle cx="12" cy="9" r="2.3"></circle></svg>
+    </div>
+    <h1>Remember where<br>everything lives.</h1>
+    <p class="tagline">Snap a photo, note the spot, and LastPlace remembers it for you — down to the drawer.</p>
+    <div class="badges">
+      <a class="badge-link" href="#" aria-label="Download on the App Store">
+        <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store">
+      </a>
+    </div>
+  </div>
+</header>
+
+<section class="features">
+  <div class="wrap">
+    <div class="feature-grid">
+      <div class="feature-card">
+        <span class="emoji">🏠</span>
+        <h3>Organize by room</h3>
+        <p>Set up rooms the way your home is actually laid out, with photos and last-known locations for everything inside.</p>
+      </div>
+      <div class="feature-card">
+        <span class="emoji">🔍</span>
+        <h3>Find anything, fast</h3>
+        <p>Search across every item, room, and location description at once — no more guessing which drawer.</p>
+      </div>
+      <div class="feature-card">
+        <span class="emoji">🧳</span>
+        <h3>Packing &amp; checklists</h3>
+        <p>Build reusable checklists for travel or everyday bags, linked straight to where each item lives.</p>
+      </div>
+      <div class="feature-card">
+        <span class="emoji">👨‍👩‍👧</span>
+        <h3>Family Find</h3>
+        <p>Invite a family member to a read-only view of your rooms — so they can find things without calling you.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="wrap">
+  <section class="privacy-callout">
+    <h2>Built for privacy</h2>
+    <p>LastPlace has no server of its own. Everything syncs privately through your own iCloud account — never through us, never to advertisers. Read the full <a href="privacy.html">privacy policy</a>.</p>
+  </section>
+</div>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <a href="support.html">Support</a>
+    <a href="privacy.html">Privacy Policy</a>
+    <div style="margin-top: 8px;">&copy; <span id="year"></span> LastPlace</div>
+  </div>
+</footer>
+
+<script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+</body>
+</html>

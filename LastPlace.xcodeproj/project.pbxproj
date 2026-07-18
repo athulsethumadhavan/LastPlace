@@ -180,6 +180,11 @@
 			path = LastPlaceUITests;
 			sourceTree = "<group>";
 		};
+		5970F703300B83E3009FA7B8 /* Docs */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Docs;
+			sourceTree = "<group>";
+		};
 		59BC67303008B52F0097DFB1 /* LastPlaceWidget */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -227,6 +232,7 @@
 		59055C423004B14F00C2437B = {
 			isa = PBXGroup;
 			children = (
+				5970F703300B83E3009FA7B8 /* Docs */,
 				59BC689D3008B9ED0097DFB1 /* LastPlaceWidgetExtension.entitlements */,
 				59055C4D3004B14F00C2437B /* LastPlace */,
 				59055C5B3004B15000C2437B /* LastPlaceTests */,
@@ -276,6 +282,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				59055C4D3004B14F00C2437B /* LastPlace */,
+				5970F703300B83E3009FA7B8 /* Docs */,
 			);
 			name = LastPlace;
 			packageProductDependencies = (
