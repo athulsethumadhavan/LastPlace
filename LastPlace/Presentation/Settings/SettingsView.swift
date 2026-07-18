@@ -9,45 +9,46 @@ struct SettingsView: View {
     @Bindable var coordinator: SettingsCoordinator
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                header
+        VStack(spacing: 0) {
+            header
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    sectionLabel("General")
+                    settingsCard {
+                        SettingsRow(title: "Privacy", symbol: "hand.raised") {
+                            coordinator.push(.privacy)
+                        }
+                        SettingsRow(title: "Permissions", symbol: "checkmark.shield") {
+                            coordinator.push(.permissions)
+                        }
+                        SettingsRow(title: "Appearance", symbol: "paintbrush") {
+                            coordinator.push(.appearance)
+                        }
+                        SettingsRow(title: "Security", symbol: "lock.shield", showsDivider: false) {
+                            coordinator.push(.security)
+                        }
+                    }
+                    .padding(.bottom, 22)
 
-                sectionLabel("General")
-                settingsCard {
-                    SettingsRow(title: "Privacy", symbol: "hand.raised") {
-                        coordinator.push(.privacy)
+                    sectionLabel("Data")
+                    settingsCard {
+                        SettingsRow(title: "Data Management", symbol: "externaldrive") {
+                            coordinator.push(.dataManagement)
+                        }
+                        SettingsRow(title: "Family Find", symbol: "person.2", showsDivider: false) {
+                            coordinator.push(.familyFind)
+                        }
                     }
-                    SettingsRow(title: "Permissions", symbol: "checkmark.shield") {
-                        coordinator.push(.permissions)
-                    }
-                    SettingsRow(title: "Appearance", symbol: "paintbrush") {
-                        coordinator.push(.appearance)
-                    }
-                    SettingsRow(title: "Security", symbol: "lock.shield", showsDivider: false) {
-                        coordinator.push(.security)
-                    }
+                    .padding(.bottom, 22)
+
+                    Text("Version \(Bundle.appVersionString)")
+                        .font(AppFont.body(12))
+                        .foregroundStyle(AppColor.textTertiary)
+                        .frame(maxWidth: .infinity, alignment: .center)
                 }
-                .padding(.bottom, 22)
-
-                sectionLabel("Data")
-                settingsCard {
-                    SettingsRow(title: "Data Management", symbol: "externaldrive") {
-                        coordinator.push(.dataManagement)
-                    }
-                    SettingsRow(title: "Family Find", symbol: "person.2", showsDivider: false) {
-                        coordinator.push(.familyFind)
-                    }
-                }
-                .padding(.bottom, 22)
-
-                Text("Version \(Bundle.appVersionString)")
-                    .font(AppFont.body(12))
-                    .foregroundStyle(AppColor.textTertiary)
-                    .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 32)
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 32)
         }
         .background(AppColor.background)
         .toolbar(.hidden, for: .navigationBar)
@@ -61,6 +62,7 @@ struct SettingsView: View {
         Text("Settings")
             .font(AppFont.heading(30))
             .foregroundStyle(AppColor.textPrimary)
+            .padding(.horizontal, 20)
             .padding(.top, 8)
             .padding(.bottom, 16)
     }
