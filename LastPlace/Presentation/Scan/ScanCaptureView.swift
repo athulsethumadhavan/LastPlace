@@ -97,11 +97,11 @@ struct ScanCaptureView: View {
                         )
                     if coordinator.captures.count > 1 {
                         Text("\(coordinator.captures.count)")
-                            .font(.caption2.weight(.bold))
+                            .font(AppFont.heading(10))
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(Color.accentColor, in: Capsule())
-                            .foregroundStyle(.white)
+                            .background(AppColor.accent, in: Capsule())
+                            .foregroundStyle(Color(red: 0.11, green: 0.1, blue: 0.09))
                             .offset(x: 6, y: -6)
                     }
                 }
@@ -140,11 +140,11 @@ struct ScanCaptureView: View {
                 coordinator.goToReview()
             } label: {
                 Text("Review")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                    .background(Color.accentColor, in: Capsule())
+                    .font(AppFont.heading(13))
+                    .foregroundStyle(Color(red: 0.11, green: 0.1, blue: 0.09))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 9)
+                    .background(AppColor.accent, in: Capsule())
             }
             .accessibilityLabel("Review captures")
         }

@@ -12,6 +12,13 @@
 //  layer (fetch-before-insert) instead. Every non-optional property has a
 //  default value, which CloudKit's schema requires.
 //
+//  `checklist` is a `@Relationship` alongside the existing flat
+//  `checklistID` — see the note on `HomeEntity.rooms` for why both exist.
+//  `linkedItem` is also a relationship (`.nullify`, not owning — this entry
+//  merely references an item that lives in a room elsewhere, so deleting
+//  the item should unlink it rather than deleting the entry).
+//  `SwiftDataChecklistRepository` keeps both in sync.
+//
 
 import Foundation
 import SwiftData
@@ -25,6 +32,11 @@ final class ChecklistEntryEntity {
     var locationDescription: String?
     var isCompleted: Bool = false
     var sortOrder: Int = 0
+
+    var checklist: ChecklistEntity?
+
+    @Relationship(deleteRule: .nullify, inverse: \StoredItemEntity.linkedFromChecklistEntries)
+    var linkedItem: StoredItemEntity?
 
     init(
         id: UUID,

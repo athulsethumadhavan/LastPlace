@@ -58,13 +58,17 @@ actor SwiftDataChecklistRepository: ChecklistRepository {
     /// Same dedupe-guard reasoning as `create` above.
     func addEntry(_ entry: ChecklistEntry) async throws -> ChecklistEntry {
         let validated = try entry.validated()
-        _ = try fetchChecklistEntity(id: validated.checklistID)
+        let checklist = try fetchChecklistEntity(id: validated.checklistID)
         if let existing = try findEntryEntity(id: validated.id) {
             ChecklistEntryMapper.apply(validated, to: existing)
+            existing.checklist = checklist
+            try linkItem(for: existing)
             try saveOrThrow()
             return ChecklistEntryMapper.toDomain(existing)
         }
         let entity = ChecklistEntryMapper.toEntity(validated)
+        entity.checklist = checklist
+        try linkItem(for: entity)
         modelContext.insert(entity)
         try saveOrThrow()
         return ChecklistEntryMapper.toDomain(entity)
@@ -74,6 +78,8 @@ actor SwiftDataChecklistRepository: ChecklistRepository {
         let validated = try entry.validated()
         let entity = try fetchEntryEntity(id: validated.id)
         ChecklistEntryMapper.apply(validated, to: entity)
+        try linkChecklist(for: entity)
+        try linkItem(for: entity)
         try saveOrThrow()
         return ChecklistEntryMapper.toDomain(entity)
     }
@@ -174,6 +180,32 @@ actor SwiftDataChecklistRepository: ChecklistRepository {
         let descriptor = FetchDescriptor<ChecklistEntryEntity>(predicate: #Predicate { $0.id == target })
         do {
             return try modelContext.fetch(descriptor).first
+        } catch {
+            throw RepositoryError.persistenceFailed(underlying: error.localizedDescription)
+        }
+    }
+
+    /// Keeps the `checklist` relationship pointer in sync with the flat
+    /// `checklistID` field — needed for CloudKit sharing's graph traversal
+    /// (see the doc comment on `HomeEntity.rooms`). A no-op if already
+    /// correct.
+    private func linkChecklist(for entity: ChecklistEntryEntity) throws {
+        guard entity.checklist?.id != entity.checklistID else { return }
+        entity.checklist = try fetchChecklistEntity(id: entity.checklistID)
+    }
+
+    /// Same idea as `linkChecklist`, but for the optional `linkedItem`
+    /// reference — clears it when the entry isn't linked to an item, and
+    /// re-resolves it when `linkedItemID` is set (or changes).
+    private func linkItem(for entity: ChecklistEntryEntity) throws {
+        guard let linkedItemID = entity.linkedItemID else {
+            entity.linkedItem = nil
+            return
+        }
+        guard entity.linkedItem?.id != linkedItemID else { return }
+        let descriptor = FetchDescriptor<StoredItemEntity>(predicate: #Predicate { $0.id == linkedItemID })
+        do {
+            entity.linkedItem = try modelContext.fetch(descriptor).first
         } catch {
             throw RepositoryError.persistenceFailed(underlying: error.localizedDescription)
         }

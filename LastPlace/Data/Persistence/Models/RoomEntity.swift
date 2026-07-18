@@ -7,6 +7,11 @@
 //  layer (fetch-before-insert) instead. Every non-optional property has a
 //  default value, which CloudKit's schema requires.
 //
+//  `home` and `items` are `@Relationship`s alongside the existing flat
+//  `homeID` — see the note on `HomeEntity.rooms` for why both exist.
+//  `SwiftDataRoomRepository` keeps `home` in sync whenever it writes
+//  `homeID`; `SwiftDataItemRepository` does the same for `items`/`room`.
+//
 
 import Foundation
 import SwiftData
@@ -20,6 +25,11 @@ final class RoomEntity {
     var coverImagePath: String?
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
+
+    var home: HomeEntity?
+
+    @Relationship(deleteRule: .cascade, inverse: \StoredItemEntity.room)
+    var items: [StoredItemEntity]? = []
 
     init(
         id: UUID,

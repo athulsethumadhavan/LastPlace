@@ -147,4 +147,65 @@ enum SwiftDataContainerFactory {
             base.appendingPathExtension("\(ext)-wal")
         ]
     }
+
+    /// One-time backfill for data created before the `@Relationship`
+    /// properties existed (`HomeEntity.rooms`, `RoomEntity.items`,
+    /// `ItemSnapshotEntity.item`, `ChecklistEntryEntity.checklist`/
+    /// `linkedItem`, etc.) — walks every entity whose relationship pointer
+    /// is still `nil` and resolves it from the existing flat UUID field, so
+    /// pre-migration data isn't left out of CloudKit's sharing graph.
+    ///
+    /// Safe to call on every launch: entities that already have their
+    /// relationship set are skipped (`where` clauses below), so after the
+    /// first run this is just a handful of cheap fetches with nothing to
+    /// change. Call once, right after `makeContainer()` succeeds, before
+    /// any repository reads/writes.
+    @MainActor
+    static func backfillRelationships(in container: ModelContainer) {
+        let context = container.mainContext
+
+        do {
+            let homes = try context.fetch(FetchDescriptor<HomeEntity>())
+            let homesByID = Dictionary(uniqueKeysWithValues: homes.map { ($0.id, $0) })
+
+            let rooms = try context.fetch(FetchDescriptor<RoomEntity>())
+            for room in rooms where room.home == nil {
+                room.home = homesByID[room.homeID]
+            }
+            let roomsByID = Dictionary(uniqueKeysWithValues: rooms.map { ($0.id, $0) })
+
+            let items = try context.fetch(FetchDescriptor<StoredItemEntity>())
+            for item in items where item.room == nil {
+                item.room = roomsByID[item.roomID]
+            }
+            let itemsByID = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
+
+            let snapshots = try context.fetch(FetchDescriptor<ItemSnapshotEntity>())
+            for snapshot in snapshots where snapshot.item == nil {
+                snapshot.item = itemsByID[snapshot.itemID]
+            }
+
+            let checklists = try context.fetch(FetchDescriptor<ChecklistEntity>())
+            let checklistsByID = Dictionary(uniqueKeysWithValues: checklists.map { ($0.id, $0) })
+
+            let entries = try context.fetch(FetchDescriptor<ChecklistEntryEntity>())
+            for entry in entries {
+                if entry.checklist == nil {
+                    entry.checklist = checklistsByID[entry.checklistID]
+                }
+                if entry.linkedItem == nil, let linkedItemID = entry.linkedItemID {
+                    entry.linkedItem = itemsByID[linkedItemID]
+                }
+            }
+
+            if context.hasChanges {
+                try context.save()
+            }
+        } catch {
+            // Best-effort. If this fails, existing rows simply stay
+            // unlinked until the next time they're written through a
+            // repository (which sets the relationship itself) — not worth
+            // failing app launch over a backfill.
+        }
+    }
 }

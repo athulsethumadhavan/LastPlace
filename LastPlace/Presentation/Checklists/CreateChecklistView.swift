@@ -39,10 +39,6 @@ struct CreateChecklistView: View {
         .navigationTitle("New Checklist")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button("Cancel") { coordinator.popLast() }
-                    .accessibilityLabel("Cancel checklist creation")
-            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Save") { saveTapped() }
                     .disabled(!viewModel.canSave)

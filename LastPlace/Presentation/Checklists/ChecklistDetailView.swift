@@ -16,10 +16,18 @@ struct ChecklistDetailView: View {
     }
 
     var body: some View {
-        content
-            .navigationTitle(navigationTitle)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { toolbarContent }
+        VStack(spacing: 0) {
+            AppNavBar(title: navigationTitle, onBack: { coordinator.popLast() }) {
+                Menu {
+                    menuContent
+                } label: {
+                    AppNavCircleIcon(systemName: "ellipsis")
+                }
+            }
+            content
+        }
+        .background(AppColor.background)
+        .toolbar(.hidden, for: .navigationBar)
             .task {
                 if case .idle = viewModel.state { await viewModel.load() }
             }
@@ -57,32 +65,25 @@ struct ChecklistDetailView: View {
         return "Checklist"
     }
 
-    @ToolbarContentBuilder
-    private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .topBarTrailing) {
-            if case .loaded(let detail) = viewModel.state {
-                Menu {
-                    Button {
-                        coordinator.push(.linkItem(checklistID: detail.checklist.id))
-                    } label: {
-                        Label("Add item", systemImage: "plus")
-                    }
-                    Button {
-                        Task { await viewModel.resetChecklist() }
-                    } label: {
-                        Label("Reset checklist", systemImage: "arrow.counterclockwise")
-                    }
-                    .disabled(detail.completedCount == 0)
-                    Divider()
-                    Button(role: .destructive) {
-                        isConfirmingDelete = true
-                    } label: {
-                        Label("Delete checklist", systemImage: "trash")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                }
-                .accessibilityLabel("Checklist actions")
+    @ViewBuilder
+    private var menuContent: some View {
+        if case .loaded(let detail) = viewModel.state {
+            Button {
+                coordinator.push(.linkItem(checklistID: detail.checklist.id))
+            } label: {
+                Label("Add item", systemImage: "plus")
+            }
+            Button {
+                Task { await viewModel.resetChecklist() }
+            } label: {
+                Label("Reset checklist", systemImage: "arrow.counterclockwise")
+            }
+            .disabled(detail.completedCount == 0)
+            Divider()
+            Button(role: .destructive) {
+                isConfirmingDelete = true
+            } label: {
+                Label("Delete checklist", systemImage: "trash")
             }
         }
     }
@@ -132,6 +133,16 @@ struct ChecklistDetailView: View {
                                 linkedItem: entry.linkedItemID.flatMap { viewModel.linkedItems[$0] },
                                 onToggle: { Task { await viewModel.toggle(entry.id) } }
                             )
+                            .listRowBackground(AppColor.background)
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 0, trailing: 20))
+                            
+                            Rectangle()
+                                .fill(AppColor.divider)
+                                .frame(height: 1)
+                                .listRowBackground(AppColor.background)
+                                .listRowSeparator(.hidden)
+                                .listRowInsets(EdgeInsets(top: 0, leading: 00, bottom: 0, trailing: 00))
                         }
                         .onDelete { offsets in
                             deleteEntries(at: offsets, from: sortedEntries)
@@ -141,28 +152,43 @@ struct ChecklistDetailView: View {
                         Button {
                             coordinator.push(.linkItem(checklistID: detail.checklist.id))
                         } label: {
-                            Label("Add item", systemImage: "plus.circle")
+                            Label("Add item", systemImage: "plus")
+                                .font(AppFont.body(14.5))
                         }
+                        .foregroundStyle(AppColor.accent)
+                        .listRowBackground(AppColor.background)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 10, leading: 20, bottom: 10, trailing: 20))
                     }
                 }
-                .listStyle(.insetGrouped)
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .background(AppColor.background)
             }
         }
+        .background(AppColor.background)
     }
 
     private func progressHeader(_ detail: ChecklistDetail) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("\(detail.completedCount) of \(detail.totalCount) done")
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(.secondary)
+                .font(AppFont.body(13, weight: .semibold))
+                .foregroundStyle(AppColor.textSecondary)
             if detail.totalCount > 0 {
-                ProgressView(value: detail.progress)
-                    .tint(.accentColor)
+                GeometryReader { proxy in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(AppColor.divider)
+                        Capsule()
+                            .fill(AppColor.accent)
+                            .frame(width: proxy.size.width * CGFloat(detail.progress))
+                    }
+                }
+                .frame(height: 3)
             }
         }
         .padding(.horizontal, 20)
-        .padding(.top, 12)
-        .padding(.bottom, 4)
+        .padding(.top, 2)
+        .padding(.bottom, 14)
     }
 
     private func deleteEntries(at offsets: IndexSet, from entries: [ChecklistEntry]) {

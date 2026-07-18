@@ -23,12 +23,14 @@ struct SectionHeader: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
             Text(title)
-                .font(.title3.weight(.semibold))
+                .font(AppFont.heading(19))
+                .foregroundStyle(AppColor.textPrimary)
                 .accessibilityAddTraits(.isHeader)
             Spacer(minLength: 8)
             if let actionTitle, let action {
                 Button(actionTitle, action: action)
-                    .font(.subheadline.weight(.medium))
+                    .font(AppFont.body(14))
+                    .foregroundStyle(AppColor.accent)
             }
         }
     }

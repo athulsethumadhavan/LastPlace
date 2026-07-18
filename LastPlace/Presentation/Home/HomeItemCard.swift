@@ -20,18 +20,18 @@ struct HomeItemCard: View {
                         HStack(spacing: 4) {
                             if item.isImportant {
                                 Image(systemName: "star.fill")
-                                    .font(.caption2)
-                                    .foregroundStyle(.yellow)
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(AppColor.accent)
                                     .accessibilityHidden(true)
                             }
                             Text(item.name)
-                                .font(.subheadline.weight(.semibold))
+                                .font(AppFont.body(13.5, weight: .semibold))
                                 .lineLimit(1)
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(AppColor.textPrimary)
                         }
                         Text(item.locationDescription.isEmpty ? item.category.displayName : item.locationDescription)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .font(AppFont.body(11.5))
+                            .foregroundStyle(AppColor.textSecondary)
                             .lineLimit(1)
                     }
                     .padding(10)

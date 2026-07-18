@@ -7,6 +7,10 @@
 //  layer (fetch-before-insert) instead. Every non-optional property has a
 //  default value, which CloudKit's schema requires.
 //
+//  `item` is a `@Relationship` alongside the existing flat `itemID`/`roomID`
+//  — see the note on `HomeEntity.rooms` for why both exist.
+//  `SwiftDataSnapshotRepository` keeps it in sync.
+//
 
 import Foundation
 import SwiftData
@@ -21,6 +25,8 @@ final class ItemSnapshotEntity {
     var capturedAt: Date = Date()
     var confidence: Double = 0
     var sourceRaw: String = ""
+
+    var item: StoredItemEntity?
 
     init(
         id: UUID,

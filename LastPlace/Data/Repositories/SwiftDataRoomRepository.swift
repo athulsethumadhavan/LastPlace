@@ -35,11 +35,13 @@ actor SwiftDataRoomRepository: RoomRepository {
         let validated = try room.validated()
         if let existing = try findEntity(id: validated.id) {
             RoomMapper.apply(validated, to: existing)
+            try linkHome(for: existing)
             try saveOrThrow()
             return RoomMapper.toDomain(existing)
         }
         let entity = RoomMapper.toEntity(validated)
         modelContext.insert(entity)
+        try linkHome(for: entity)
         try saveOrThrow()
         return RoomMapper.toDomain(entity)
     }
@@ -48,6 +50,7 @@ actor SwiftDataRoomRepository: RoomRepository {
         let validated = try room.validated()
         let entity = try fetchEntity(id: validated.id)
         RoomMapper.apply(validated, to: entity)
+        try linkHome(for: entity)
         try saveOrThrow()
         return RoomMapper.toDomain(entity)
     }
@@ -80,6 +83,21 @@ actor SwiftDataRoomRepository: RoomRepository {
         let descriptor = FetchDescriptor<RoomEntity>(predicate: #Predicate { $0.id == target })
         do {
             return try modelContext.fetch(descriptor).first
+        } catch {
+            throw RepositoryError.persistenceFailed(underlying: error.localizedDescription)
+        }
+    }
+
+    /// Keeps the `home` relationship pointer in sync with the flat `homeID`
+    /// field — needed for CloudKit sharing's graph traversal (see the doc
+    /// comment on `HomeEntity.rooms`). A no-op if it's already correct, so
+    /// this is cheap to call unconditionally on every write.
+    private func linkHome(for entity: RoomEntity) throws {
+        guard entity.home?.id != entity.homeID else { return }
+        let target = entity.homeID
+        let descriptor = FetchDescriptor<HomeEntity>(predicate: #Predicate { $0.id == target })
+        do {
+            entity.home = try modelContext.fetch(descriptor).first
         } catch {
             throw RepositoryError.persistenceFailed(underlying: error.localizedDescription)
         }

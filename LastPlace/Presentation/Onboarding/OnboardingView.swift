@@ -15,6 +15,8 @@ struct OnboardingView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                skipRow
+
                 TabView(selection: Binding(
                     get: { viewModel.currentIndex },
                     set: { viewModel.currentIndex = $0 }
@@ -24,27 +26,46 @@ struct OnboardingView: View {
                             .tag(index)
                     }
                 }
-                .tabViewStyle(.page(indexDisplayMode: .always))
-                .indexViewStyle(.page(backgroundDisplayMode: .always))
+                .tabViewStyle(.page(indexDisplayMode: .never))
+
+                dots
+                    .padding(.bottom, 24)
 
                 controls
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, 28)
                     .padding(.bottom, 24)
-                    .padding(.top, 8)
             }
-            .background(Color(.systemBackground).ignoresSafeArea())
-            .toolbar {
-                if !viewModel.isLastPage {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("Skip", action: viewModel.skip)
-                    }
-                }
+            .background(AppColor.background.ignoresSafeArea())
+            .toolbar(.hidden, for: .navigationBar)
+        }
+    }
+
+    private var skipRow: some View {
+        HStack {
+            Spacer()
+            if !viewModel.isLastPage {
+                Button("Skip", action: viewModel.skip)
+                    .font(AppFont.body(14))
+                    .foregroundStyle(AppColor.textSecondary)
+            }
+        }
+        .frame(height: 20)
+        .padding(.horizontal, 28)
+        .padding(.top, 8)
+    }
+
+    private var dots: some View {
+        HStack(spacing: 8) {
+            ForEach(viewModel.pages.indices, id: \.self) { index in
+                Capsule()
+                    .fill(index == viewModel.currentIndex ? AppColor.accent : AppColor.divider)
+                    .frame(width: index == viewModel.currentIndex ? 20 : 6, height: 3)
             }
         }
     }
 
     private var controls: some View {
-        PrimaryButton(viewModel.primaryButtonTitle, action: {
+        PrimaryButton(viewModel.primaryButtonTitle, symbolName: viewModel.isLastPage ? nil : "arrow.right", action: {
             withAnimation(.easeInOut(duration: 0.2)) {
                 viewModel.advance()
             }
@@ -57,22 +78,28 @@ private struct OnboardingPageView: View {
     let page: OnboardingPage
 
     var body: some View {
-        VStack(spacing: 32) {
+        VStack(spacing: 28) {
             Spacer()
 
-            Image(systemName: page.symbolName)
-                .font(.system(size: 76, weight: .regular))
-                .foregroundStyle(.tint)
-                .accessibilityHidden(true)
+            ZStack {
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(AppColor.surface)
+                    .frame(width: 200, height: 200)
+                Image(systemName: page.symbolName)
+                    .font(.system(size: 72, weight: .light))
+                    .foregroundStyle(AppColor.accent)
+                    .accessibilityHidden(true)
+            }
 
-            VStack(spacing: 12) {
+            VStack(spacing: 14) {
                 Text(page.title)
-                    .font(.largeTitle.weight(.semibold))
+                    .font(AppFont.heading(28))
+                    .foregroundStyle(AppColor.textPrimary)
                     .multilineTextAlignment(.center)
                     .accessibilityAddTraits(.isHeader)
                 Text(page.subtitle)
-                    .font(.body)
-                    .foregroundStyle(.secondary)
+                    .font(AppFont.body(15))
+                    .foregroundStyle(AppColor.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
                     .fixedSize(horizontal: false, vertical: true)
@@ -80,7 +107,6 @@ private struct OnboardingPageView: View {
 
             Spacer()
         }
-        .padding(.top, 8)
     }
 }
 

@@ -44,10 +44,10 @@ struct AsyncStoredImage: View {
 
     private var placeholder: some View {
         ZStack {
-            Color(.systemGray6)
+            AppColor.surface
             Image(systemName: didFail ? "exclamationmark.triangle" : placeholderSymbol)
                 .font(.title2)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(didFail ? AppColor.textTertiary : AppColor.accent)
         }
     }
 
