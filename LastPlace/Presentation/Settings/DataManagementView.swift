@@ -10,6 +10,7 @@ struct DataManagementView: View {
     @State private var viewModel: DataManagementViewModel
     @State private var isConfirmingDelete = false
     @State private var showsDeletedConfirmation = false
+    @Environment(\.dismiss) private var dismiss
 
     init(coordinator: SettingsCoordinator, viewModel: DataManagementViewModel) {
         self.coordinator = coordinator
@@ -17,9 +18,12 @@ struct DataManagementView: View {
     }
 
     var body: some View {
-        content
-            .navigationTitle("Data Management")
-            .navigationBarTitleDisplayMode(.inline)
+        VStack(spacing: 0) {
+            AppNavBar(title: "Data Management", onBack: { dismiss() })
+            content
+        }
+        .background(AppColor.background)
+        .toolbar(.hidden, for: .navigationBar)
             .task {
                 if case .idle = viewModel.state { await viewModel.load() }
             }
@@ -75,15 +79,36 @@ struct DataManagementView: View {
                 summarySection(summary)
                 deleteSection
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(AppColor.background)
         }
     }
 
     private func summarySection(_ summary: DataSummary) -> some View {
-        Section("What's saved") {
-            LabeledContent("Rooms", value: "\(summary.roomCount)")
-            LabeledContent("Items", value: "\(summary.itemCount)")
-            LabeledContent("Checklists", value: "\(summary.checklistCount)")
+        Section {
+            row("Rooms", value: "\(summary.roomCount)")
+            row("Items", value: "\(summary.itemCount)")
+            row("Checklists", value: "\(summary.checklistCount)")
+        } header: {
+            Text("What's saved")
+                .font(AppFont.heading(12, weight: .semibold))
+                .foregroundStyle(AppColor.textSecondary)
+                .kerning(0.5)
         }
+    }
+
+    private func row(_ title: String, value: String) -> some View {
+        HStack {
+            Text(title)
+                .font(AppFont.body(15))
+                .foregroundStyle(AppColor.textPrimary)
+            Spacer()
+            Text(value)
+                .font(AppFont.body(15))
+                .foregroundStyle(AppColor.textSecondary)
+        }
+        .listRowBackground(AppColor.background)
     }
 
     private var deleteSection: some View {
@@ -93,6 +118,7 @@ struct DataManagementView: View {
             } label: {
                 HStack {
                     Text("Delete All Data")
+                        .font(AppFont.body(15))
                     Spacer()
                     if viewModel.isDeleting {
                         ProgressView()
@@ -100,8 +126,11 @@ struct DataManagementView: View {
                 }
             }
             .disabled(viewModel.isDeleting)
+            .listRowBackground(AppColor.background)
         } footer: {
             Text("Permanently removes every room, item, and checklist, along with their saved photos. This can't be undone.")
+                .font(AppFont.body(12.5))
+                .foregroundStyle(AppColor.textTertiary)
         }
     }
 }

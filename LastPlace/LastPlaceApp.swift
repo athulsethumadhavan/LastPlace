@@ -11,6 +11,7 @@ import SwiftUI
 
 @main
 struct LastPlaceApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var bootstrap = AppBootstrap()
 
     var body: some Scene {

@@ -37,11 +37,14 @@ struct PrimaryButton: View {
                     Image(systemName: symbolName)
                 }
                 Text(title)
-                    .font(.headline)
+                    .font(AppFont.heading(16))
             }
-            .frame(maxWidth: .infinity, minHeight: 44)
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity, minHeight: 52)
+            .background(AppColor.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
-        .buttonStyle(.borderedProminent)
+        .buttonStyle(.plain)
         .disabled(!isEnabled || isLoading)
+        .opacity(isEnabled ? 1 : 0.5)
     }
 }

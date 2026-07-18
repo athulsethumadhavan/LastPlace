@@ -8,43 +8,54 @@ import SwiftUI
 struct ChecklistRow: View {
     let checklist: Checklist
     let progress: ChecklistsListViewModel.Progress?
+    var showsDivider: Bool = true
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 12) {
-                Image(systemName: checklist.type.symbolName)
-                    .font(.title3)
-                    .foregroundStyle(.tint)
-                    .frame(width: 44, height: 44)
-                    .background(Color(.tertiarySystemGroupedBackground), in: Circle())
-                    .accessibilityHidden(true)
+            VStack(spacing: 0) {
+                HStack(spacing: 12) {
+                    Image(systemName: checklist.type.symbolName)
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundStyle(AppColor.accent)
+                        .frame(width: 42, height: 42)
+                        .background(AppColor.surface, in: Circle())
+                        .accessibilityHidden(true)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(checklist.name)
-                        .font(.body.weight(.medium))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                    Text(subtitle)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(checklist.name)
+                            .font(AppFont.body(15, weight: .semibold))
+                            .foregroundStyle(AppColor.textPrimary)
+                            .lineLimit(1)
+                        Text(subtitle)
+                            .font(AppFont.body(12.5))
+                            .foregroundStyle(AppColor.textSecondary)
+                            .lineLimit(1)
+                    }
 
-                Spacer(minLength: 8)
+                    Spacer(minLength: 8)
 
-                if isComplete {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
+                    if isComplete {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                            .accessibilityHidden(true)
+                    }
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(AppColor.textTertiary)
                         .accessibilityHidden(true)
                 }
+                .padding(.horizontal, 14)
+                .frame(minHeight: 58)
 
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.tertiary)
-                    .accessibilityHidden(true)
+                if showsDivider {
+                    Rectangle()
+                        .fill(AppColor.divider)
+                        .frame(height: 1)
+                        .padding(.leading, 14 + 42 + 12)
+                }
             }
-            .padding(.vertical, 4)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

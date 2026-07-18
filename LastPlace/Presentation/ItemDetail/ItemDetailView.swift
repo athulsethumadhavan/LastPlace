@@ -21,10 +21,18 @@ struct ItemDetailView: View {
     }
 
     var body: some View {
-        content
-            .navigationTitle(navigationTitle)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { toolbarContent }
+        VStack(spacing: 0) {
+            AppNavBar(title: navigationTitle, onBack: { navigator.popTop() }) {
+                Menu {
+                    menuContent
+                } label: {
+                    AppNavCircleIcon(systemName: "ellipsis")
+                }
+            }
+            content
+        }
+        .background(AppColor.background)
+        .toolbar(.hidden, for: .navigationBar)
             .task {
                 if case .idle = viewModel.state { await viewModel.load() }
             }
@@ -80,35 +88,28 @@ struct ItemDetailView: View {
         }
     }
 
-    @ToolbarContentBuilder
-    private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .topBarTrailing) {
-            if case .loaded(let detail) = viewModel.state {
-                Menu {
-                    Button {
-                        Task { await viewModel.toggleImportance() }
-                        navigator.refreshAfterItemMutation()
-                    } label: {
-                        Label(
-                            detail.item.isImportant ? "Unmark important" : "Mark as important",
-                            systemImage: detail.item.isImportant ? "star.slash" : "star"
-                        )
-                    }
-                    Button {
-                        navigator.pushUpdateItemLocation(itemID: detail.item.id)
-                    } label: {
-                        Label("Update location", systemImage: "mappin.and.ellipse")
-                    }
-                    Divider()
-                    Button(role: .destructive) {
-                        isConfirmingDelete = true
-                    } label: {
-                        Label("Delete item", systemImage: "trash")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                }
-                .accessibilityLabel("Item actions")
+    @ViewBuilder
+    private var menuContent: some View {
+        if case .loaded(let detail) = viewModel.state {
+            Button {
+                Task { await viewModel.toggleImportance() }
+                navigator.refreshAfterItemMutation()
+            } label: {
+                Label(
+                    detail.item.isImportant ? "Unmark important" : "Mark as important",
+                    systemImage: detail.item.isImportant ? "star.slash" : "star"
+                )
+            }
+            Button {
+                navigator.pushUpdateItemLocation(itemID: detail.item.id)
+            } label: {
+                Label("Update location", systemImage: "mappin.and.ellipse")
+            }
+            Divider()
+            Button(role: .destructive) {
+                isConfirmingDelete = true
+            } label: {
+                Label("Delete item", systemImage: "trash")
             }
         }
     }
@@ -123,7 +124,8 @@ struct ItemDetailView: View {
                 snapshotsSection(detail.snapshots)
             }
             .padding(.horizontal, 20)
-            .padding(.bottom, 24)
+            .padding(.top, 4)
+            .padding(.bottom, 32)
         }
     }
 
@@ -135,7 +137,7 @@ struct ItemDetailView: View {
         )
         .frame(height: 240)
         .frame(maxWidth: .infinity)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: AppMetrics.cardRadius, style: .continuous))
         .accessibilityHidden(true)
     }
 
@@ -143,10 +145,10 @@ struct ItemDetailView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
                 Image(systemName: detail.item.category.symbolName)
-                    .foregroundStyle(.tint)
+                    .foregroundStyle(AppColor.accent)
                 Text(detail.item.category.displayName)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(AppFont.body(13))
+                    .foregroundStyle(AppColor.textSecondary)
                 if detail.item.isImportant {
                     Label("Important", systemImage: "star.fill")
                         .labelStyle(.iconOnly)
@@ -157,16 +159,17 @@ struct ItemDetailView: View {
             }
 
             Text(detail.item.name)
-                .font(.title.weight(.semibold))
+                .font(AppFont.heading(26))
+                .foregroundStyle(AppColor.textPrimary)
                 .accessibilityAddTraits(.isHeader)
 
             Text("In \(detail.room.name)")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .font(AppFont.body(13))
+                .foregroundStyle(AppColor.textSecondary)
 
             Text("Updated \(detail.item.updatedAt.formatted(.relative(presentation: .named)))")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+                .font(AppFont.body(12.5))
+                .foregroundStyle(AppColor.textTertiary)
         }
     }
 
@@ -176,27 +179,29 @@ struct ItemDetailView: View {
             VStack(alignment: .leading, spacing: 6) {
                 if detail.item.locationDescription.isEmpty {
                     Text("No location set")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
+                        .font(AppFont.body(15))
+                        .foregroundStyle(AppColor.textSecondary)
                 } else {
                     Text(detail.item.locationDescription)
-                        .font(.body)
+                        .font(AppFont.body(15))
+                        .foregroundStyle(AppColor.textPrimary)
                 }
                 Text("Last seen \(detail.item.lastSeenAt.formatted(.relative(presentation: .named)))")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .font(AppFont.body(12.5))
+                    .foregroundStyle(AppColor.textTertiary)
                 Button {
                     navigator.pushUpdateItemLocation(itemID: detail.item.id)
                 } label: {
                     Label("Update location", systemImage: "mappin.and.ellipse")
+                        .font(AppFont.body(13, weight: .medium))
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
+                .buttonStyle(.plain)
+                .foregroundStyle(AppColor.accent)
                 .padding(.top, 4)
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(AppColor.surface, in: RoundedRectangle(cornerRadius: AppMetrics.plateRadius, style: .continuous))
         }
     }
 
@@ -206,10 +211,11 @@ struct ItemDetailView: View {
             VStack(alignment: .leading, spacing: 8) {
                 SectionHeader("Notes")
                 Text(notes)
-                    .font(.body)
+                    .font(AppFont.body(15))
+                    .foregroundStyle(AppColor.textPrimary)
                     .padding(14)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .background(AppColor.surface, in: RoundedRectangle(cornerRadius: AppMetrics.plateRadius, style: .continuous))
             }
         }
     }
@@ -246,15 +252,16 @@ struct ItemDetailView: View {
             VStack(alignment: .leading, spacing: 2) {
                 if !snapshot.locationDescription.isEmpty {
                     Text(snapshot.locationDescription)
-                        .font(.footnote.weight(.medium))
+                        .font(AppFont.body(12.5, weight: .medium))
+                        .foregroundStyle(AppColor.textPrimary)
                         .lineLimit(2)
                 }
                 Text(snapshot.capturedAt.formatted(.relative(presentation: .named)))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(AppFont.body(11))
+                    .foregroundStyle(AppColor.textTertiary)
             }
         }
         .padding(8)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(AppColor.surface, in: RoundedRectangle(cornerRadius: AppMetrics.plateRadius - 2, style: .continuous))
     }
 }

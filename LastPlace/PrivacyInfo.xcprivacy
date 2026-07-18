@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	LastPlace doesn't use ads, analytics, or any third-party SDK, and never
+	sends user data off-device except through the user's own private
+	CloudKit container (which Apple's data-collection definitions don't
+	treat as developer collection). So there's nothing to declare below
+	except the one "required reason API" the app actually calls:
+	UserDefaults, used by AppearanceSettingsStore, AppLockSettingsStore,
+	and UserDefaultsOnboardingPreferences to persist simple local
+	preferences. Reason CA92.1 covers reading/writing UserDefaults data
+	that's only ever accessed by this app (and its App Group, for the
+	widget) — not shared with or readable by any other developer's app.
+	-->
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

@@ -45,6 +45,16 @@ final class SettingsCoordinator {
         )
     }
 
+    private func makeFamilyFindViewModel() -> FamilyFindViewModel {
+        FamilyFindViewModel(
+            fetchDefaultHome: DefaultFetchDefaultHomeUseCase(homeRepository: container.homeRepository),
+            roomRepository: container.roomRepository,
+            itemRepository: container.itemRepository,
+            homeSharingService: container.homeSharingService,
+            logger: container.logger
+        )
+    }
+
     private func makeDataManagementViewModel() -> DataManagementViewModel {
         DataManagementViewModel(
             fetchSummary: DefaultFetchDataSummaryUseCase(
@@ -84,6 +94,8 @@ final class SettingsCoordinator {
             SecurityView(viewModel: makeSecurityViewModel())
         case .dataManagement:
             DataManagementView(coordinator: self, viewModel: makeDataManagementViewModel())
+        case .familyFind:
+            FamilyFindView(coordinator: self, viewModel: makeFamilyFindViewModel())
         }
     }
 }

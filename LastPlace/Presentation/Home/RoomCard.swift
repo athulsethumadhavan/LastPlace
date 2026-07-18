@@ -14,14 +14,14 @@ struct RoomCard: View {
             AppCard {
                 VStack(alignment: .leading, spacing: 0) {
                     iconBanner
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text(room.name)
-                            .font(.headline)
+                            .font(AppFont.body(14, weight: .semibold))
                             .lineLimit(1)
-                            .foregroundStyle(.primary)
+                            .foregroundStyle(AppColor.textPrimary)
                         Text(updatedText)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .font(AppFont.body(11.5))
+                            .foregroundStyle(AppColor.textSecondary)
                     }
                     .padding(12)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -40,13 +40,13 @@ struct RoomCard: View {
     /// pretending to be a photo with a duplicate icon badge on top of it.
     private var iconBanner: some View {
         ZStack {
-            Color(.tertiarySystemGroupedBackground)
+            AppColor.surface
             Image(systemName: room.iconName)
-                .font(.title)
-                .foregroundStyle(.tint)
+                .font(.title2)
+                .foregroundStyle(AppColor.accent)
                 .accessibilityHidden(true)
         }
-        .frame(height: 72)
+        .frame(height: 66)
     }
 
     private var updatedText: String {

@@ -7,6 +7,11 @@
 //  layer (fetch-before-insert) instead. Every non-optional property has a
 //  default value, which CloudKit's schema requires.
 //
+//  `room` and `snapshots` are `@Relationship`s alongside the existing flat
+//  `roomID` — see the note on `HomeEntity.rooms` for why both exist.
+//  `SwiftDataItemRepository` keeps `room` in sync whenever it writes
+//  `roomID`; `SwiftDataSnapshotRepository` does the same for `snapshots`/`item`.
+//
 
 import Foundation
 import SwiftData
@@ -25,6 +30,19 @@ final class StoredItemEntity {
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
     var isImportant: Bool = false
+
+    var room: RoomEntity?
+
+    @Relationship(deleteRule: .cascade, inverse: \ItemSnapshotEntity.item)
+    var snapshots: [ItemSnapshotEntity]? = []
+
+    /// Inverse side of `ChecklistEntryEntity.linkedItem`. CloudKit-backed
+    /// SwiftData rejects any relationship that doesn't have an inverse on
+    /// both sides, even ones that are conceptually one-directional — this
+    /// is what "CloudKit integration requires that all relationships have
+    /// an inverse" was pointing at. Not read anywhere in the app; it
+    /// exists purely to satisfy that constraint.
+    var linkedFromChecklistEntries: [ChecklistEntryEntity]? = []
 
     init(
         id: UUID,

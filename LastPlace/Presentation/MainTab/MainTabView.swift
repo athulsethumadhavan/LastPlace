@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct MainTabView: View {
     let container: AppDependencyContainer
@@ -12,9 +13,17 @@ struct MainTabView: View {
     init(container: AppDependencyContainer) {
         self.container = container
         _coordinator = State(initialValue: MainTabView.makeCoordinator(container: container))
+        MainTabView.configureTabBarAppearance()
     }
 
     var body: some View {
+        // Reverted to the native `TabView`/`.tabItem` bar — the custom
+        // floating glass bar (`FloatingTabBar`, kept around unused in case
+        // this gets revisited) sat slightly higher than the system bar's
+        // usual position and lived outside every `NavigationStack`, which
+        // meant each tab's root screen had to manually pad its scroll
+        // content to clear it. Native `TabView` reserves that space itself
+        // via the safe area, so screens no longer need that manual padding.
         TabView(selection: Binding(
             get: { coordinator.selectedTab },
             set: { coordinator.selectedTab = $0 }
@@ -64,6 +73,25 @@ struct MainTabView: View {
             .tabItem { Label(MainTab.settings.title, systemImage: MainTab.settings.symbolName) }
             .tag(MainTab.settings)
         }
+        .tint(AppColor.accent)
+    }
+
+    /// `.tint(AppColor.accent)` above only colors the *selected* tab —
+    /// unselected icons/labels default to the system's own gray, which
+    /// doesn't track our light/dark `AppColor` tokens (and can end up
+    /// looking closer to black than gray depending on appearance). SwiftUI
+    /// has no direct modifier for the unselected state, so this reaches
+    /// into `UITabBarAppearance` once at startup to pin it to
+    /// `AppColor.textTertiary` instead. Selected-state colors are left
+    /// untouched so `.tint` keeps controlling those.
+    private static func configureTabBarAppearance() {
+        let appearance = UITabBarAppearance()
+        appearance.configureWithDefaultBackground()
+        appearance.stackedLayoutAppearance.normal.iconColor = AppColor.textTertiaryUIColor
+        appearance.stackedLayoutAppearance.normal.titleTextAttributes = [.foregroundColor: AppColor.textTertiaryUIColor]
+
+        UITabBar.appearance().standardAppearance = appearance
+        UITabBar.appearance().scrollEdgeAppearance = appearance
     }
 
     @MainActor

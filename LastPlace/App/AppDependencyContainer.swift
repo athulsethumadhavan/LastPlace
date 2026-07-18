@@ -30,6 +30,7 @@ final class AppDependencyContainer {
     let appearanceSettings: AppearanceSettingsStore
     let appLockSettings: AppLockSettingsStore
     let biometricAuthenticator: BiometricAuthenticator
+    let homeSharingService: HomeSharingService
 
     /// Camera capture wraps AVCaptureSession, which shouldn't be shared across
     /// concurrent scans. The container vends a fresh instance per scan session
@@ -46,6 +47,7 @@ final class AppDependencyContainer {
         appearanceSettings: AppearanceSettingsStore,
         appLockSettings: AppLockSettingsStore,
         biometricAuthenticator: BiometricAuthenticator,
+        homeSharingService: HomeSharingService,
         homeRepository: HomeRepository,
         roomRepository: RoomRepository,
         itemRepository: ItemRepository,
@@ -63,6 +65,7 @@ final class AppDependencyContainer {
         self.appearanceSettings = appearanceSettings
         self.appLockSettings = appLockSettings
         self.biometricAuthenticator = biometricAuthenticator
+        self.homeSharingService = homeSharingService
         self.homeRepository = homeRepository
         self.roomRepository = roomRepository
         self.itemRepository = itemRepository
@@ -76,6 +79,7 @@ final class AppDependencyContainer {
     /// `UserDefaults` onboarding flag, and the OS logger.
     static func makeDefault() throws -> AppDependencyContainer {
         let modelContainer = try SwiftDataContainerFactory.makeContainer()
+        SwiftDataContainerFactory.backfillRelationships(in: modelContainer)
         let imageStorage = try FileImageStorageService()
 
         return AppDependencyContainer(
@@ -87,6 +91,7 @@ final class AppDependencyContainer {
             appearanceSettings: AppearanceSettingsStore(),
             appLockSettings: AppLockSettingsStore(),
             biometricAuthenticator: LAContextBiometricAuthenticator(),
+            homeSharingService: CloudKitHomeSharingService(),
             homeRepository: SwiftDataHomeRepository(modelContainer: modelContainer),
             roomRepository: SwiftDataRoomRepository(modelContainer: modelContainer),
             itemRepository: SwiftDataItemRepository(modelContainer: modelContainer),
@@ -113,6 +118,7 @@ final class AppDependencyContainer {
                 defaults: UserDefaults(suiteName: "com.lastplace.preview") ?? .standard
             ),
             biometricAuthenticator: MockBiometricAuthenticator(),
+            homeSharingService: MockHomeSharingService(),
             homeRepository: SwiftDataHomeRepository(modelContainer: modelContainer),
             roomRepository: SwiftDataRoomRepository(modelContainer: modelContainer),
             itemRepository: SwiftDataItemRepository(modelContainer: modelContainer),

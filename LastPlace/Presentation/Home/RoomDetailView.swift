@@ -17,15 +17,23 @@ struct RoomDetailView: View {
     }
 
     var body: some View {
-        content
-            .navigationTitle(navigationTitle)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { toolbarContent }
-            .task {
-                if case .idle = viewModel.state { await viewModel.load() }
+        VStack(spacing: 0) {
+            AppNavBar(title: navigationTitle, onBack: { dismiss() }) {
+                Menu {
+                    menuContent
+                } label: {
+                    AppNavCircleIcon(systemName: "ellipsis")
+                }
             }
-            .refreshable { await viewModel.load() }
-            .confirmationDialog(
+            content
+        }
+        .background(AppColor.background)
+        .toolbar(.hidden, for: .navigationBar)
+        .task {
+            if case .idle = viewModel.state { await viewModel.load() }
+        }
+        .refreshable { await viewModel.load() }
+        .confirmationDialog(
                 "Delete this room?",
                 isPresented: $isConfirmingDelete,
                 titleVisibility: .visible
@@ -79,32 +87,25 @@ struct RoomDetailView: View {
         }
     }
 
-    @ToolbarContentBuilder
-    private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .topBarTrailing) {
-            Menu {
-                if case .loaded(let content) = viewModel.state {
-                    Button {
-                        coordinator.push(.editRoom(roomID: content.room.id))
-                    } label: {
-                        Label("Edit room", systemImage: "pencil")
-                    }
-                    Button {
-                        coordinator.push(.scanRoom(roomID: content.room.id))
-                    } label: {
-                        Label("Scan room", systemImage: "camera.viewfinder")
-                    }
-                    Divider()
-                }
-                Button(role: .destructive) {
-                    isConfirmingDelete = true
-                } label: {
-                    Label("Delete room", systemImage: "trash")
-                }
+    @ViewBuilder
+    private var menuContent: some View {
+        if case .loaded(let content) = viewModel.state {
+            Button {
+                coordinator.push(.editRoom(roomID: content.room.id))
             } label: {
-                Image(systemName: "ellipsis.circle")
+                Label("Edit room", systemImage: "pencil")
             }
-            .accessibilityLabel("Room actions")
+            Button {
+                coordinator.push(.scanRoom(roomID: content.room.id))
+            } label: {
+                Label("Scan room", systemImage: "camera.viewfinder")
+            }
+            Divider()
+        }
+        Button(role: .destructive) {
+            isConfirmingDelete = true
+        } label: {
+            Label("Delete room", systemImage: "trash")
         }
     }
 
@@ -115,26 +116,28 @@ struct RoomDetailView: View {
                 itemsSection(items: content.items, room: content.room)
             }
             .padding(.horizontal, 20)
-            .padding(.bottom, 24)
+            .padding(.top, 16)
+            .padding(.bottom, 32)
         }
     }
 
     private func header(for room: Room) -> some View {
         HStack(spacing: 12) {
             Image(systemName: room.iconName)
-                .font(.title2)
-                .foregroundStyle(.tint)
-                .frame(width: 44, height: 44)
-                .background(Color(.tertiarySystemGroupedBackground), in: Circle())
+                .font(.system(size: 19, weight: .medium))
+                .foregroundStyle(AppColor.accent)
+                .frame(width: 46, height: 46)
+                .background(AppColor.surface, in: Circle())
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(room.name)
-                    .font(.title2.weight(.semibold))
+                    .font(AppFont.heading(23))
+                    .foregroundStyle(AppColor.textPrimary)
                     .accessibilityAddTraits(.isHeader)
                 Text("Updated \(room.updatedAt.formatted(.relative(presentation: .named)))")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .font(AppFont.body(12.5))
+                    .foregroundStyle(AppColor.textSecondary)
             }
             Spacer()
         }

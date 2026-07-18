@@ -23,8 +23,8 @@ struct ChecklistEntryRow: View {
         Button(action: onToggle) {
             HStack(spacing: 12) {
                 Image(systemName: entry.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.title3)
-                    .foregroundStyle(entry.isCompleted ? Color.accentColor : Color.secondary)
+                    .font(.system(size: 19))
+                    .foregroundStyle(entry.isCompleted ? AppColor.accent : AppColor.textTertiary)
                     .accessibilityHidden(true)
 
                 if let linkedItem {
@@ -33,15 +33,15 @@ struct ChecklistEntryRow: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(entry.title)
-                        .font(.body)
+                        .font(AppFont.body(14.5))
                         .strikethrough(entry.isCompleted)
-                        .foregroundStyle(entry.isCompleted ? .secondary : .primary)
+                        .foregroundStyle(entry.isCompleted ? AppColor.textTertiary : AppColor.textPrimary)
                         .lineLimit(2)
 
                     if let locationCaption {
                         Label(locationCaption, systemImage: linkedItem != nil ? "link" : "mappin.and.ellipse")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .font(AppFont.body(11.5))
+                            .foregroundStyle(AppColor.textSecondary)
                             .lineLimit(1)
                     }
                 }
@@ -60,8 +60,8 @@ struct ChecklistEntryRow: View {
 
     private func thumbnail(for item: StoredItem) -> some View {
         AsyncStoredImage(path: item.imagePath, contentMode: .fill, placeholderSymbol: item.category.symbolName)
-            .frame(width: 40, height: 40)
-            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .frame(width: 36, height: 36)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .accessibilityHidden(true)
     }
 

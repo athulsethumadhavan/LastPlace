@@ -10,6 +10,14 @@
 //  layer (fetch-before-insert) instead. Every non-optional property has a
 //  default value, which CloudKit's schema requires.
 //
+//  `entries` is a `@Relationship` so a shared checklist brings its entries
+//  along — see the note on `HomeEntity.rooms` for the general reasoning.
+//  Checklists aren't scoped to a `Home` in this pass (there's no `homeID`
+//  concept on `Checklist` today, and adding one would ripple into the
+//  domain layer and use cases beyond what this persistence-only migration
+//  is meant to touch) — they stay their own independent share root rather
+//  than riding along inside a shared Home.
+//
 
 import Foundation
 import SwiftData
@@ -22,6 +30,9 @@ final class ChecklistEntity {
     var customLabel: String?
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
+
+    @Relationship(deleteRule: .cascade, inverse: \ChecklistEntryEntity.checklist)
+    var entries: [ChecklistEntryEntity]? = []
 
     init(
         id: UUID,
