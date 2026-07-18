@@ -65,6 +65,7 @@ struct SettingsView: View {
             .padding(.horizontal, 20)
             .padding(.top, 8)
             .padding(.bottom, 16)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func sectionLabel(_ title: String) -> some View {
