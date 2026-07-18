@@ -39,6 +39,15 @@ extension Room {
     static let nameMaxLength = 40
     static let defaultIconName = "house"
 
+    /// Shared by `CreateRoomView` and `EditRoomView` so the icon grid is
+    /// identical whether you're creating a room or renaming one.
+    static let iconSuggestions: [String] = [
+        "house", "bed.double", "sofa", "fork.knife", "cooktop",
+        "bathtub", "shower", "washer", "dryer", "tent", "chair.lounge",
+        "books.vertical", "desktopcomputer", "briefcase", "shippingbox",
+        "car", "figure.walk", "leaf", "tree"
+    ]
+
     func validated() throws -> Room {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw ValidationError.emptyName(field: "room") }

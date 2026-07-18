@@ -2,9 +2,9 @@
 //  HomeCoordinator.swift
 //  LastPlace
 //
-//  Owns the Home tab's `NavigationPath` and builds destination views for each
-//  route. Phase 4 fills in real feature views; today it returns typed
-//  placeholders so navigation is wired end-to-end.
+//  Owns the Home tab's `NavigationPath`, vends view models constructed from
+//  the shared `AppDependencyContainer`, and builds destination views for each
+//  route.
 //
 
 import SwiftUI
@@ -17,41 +17,260 @@ final class HomeCoordinator {
 
     let container: AppDependencyContainer
 
+    /// Single source of truth for the Home tab's root screen. Owned here (not
+    /// by `HomeView`) so that any flow reachable from Home — create room,
+    /// delete room, edit room, etc. — can ask the coordinator to refresh the
+    /// dashboard after a mutation, even though those flows are pushed on top
+    /// of `HomeView` and never re-run its `.task`.
+    @ObservationIgnored
+    private(set) lazy var homeViewModel: HomeViewModel = makeRootViewModel()
+
+    /// Weak handle to the currently-visible room detail view model, so flows
+    /// pushed above room detail (scan flow, edit room, etc.) can force it to
+    /// reload after a mutation. Weak so it nils out when the user pops back
+    /// past room detail.
+    @ObservationIgnored
+    weak var activeRoomDetailViewModel: RoomDetailViewModel?
+
+    /// Same rationale as `activeRoomDetailViewModel` — lets flows pushed above
+    /// item detail (update-location) force it to reload without a `.task`
+    /// re-fire.
+    @ObservationIgnored
+    weak var activeItemDetailViewModel: ItemDetailViewModel?
+
     init(container: AppDependencyContainer) {
         self.container = container
     }
 
     func push(_ route: HomeRoute) { path.append(route) }
     func popToRoot() { path = NavigationPath() }
+    func popLast() {
+        guard !path.isEmpty else { return }
+        path.removeLast()
+    }
 
-    @ViewBuilder
-    func destination(for route: HomeRoute) -> some View {
-        FeaturePlaceholderView(
-            title: title(for: route),
-            subtitle: "This feature ships in a later phase.",
-            symbolName: symbolName(for: route)
+    /// Reloads the Home dashboard (rooms, recent items, important items).
+    /// Call this after any mutation made from a screen pushed on top of Home
+    /// — creating, deleting, or editing a room; moving or updating an item —
+    /// since returning to Home via `popLast`/`popToRoot` does not by itself
+    /// re-trigger a load.
+    func refreshHome() {
+        Task { await homeViewModel.refresh() }
+    }
+
+    /// Reloads the currently-visible RoomDetail screen, if any. No-op when
+    /// room detail isn't in the stack. Same rationale as `refreshHome`: pops
+    /// back to room detail don't re-run its `.task`.
+    func refreshRoomDetail() {
+        guard let viewModel = activeRoomDetailViewModel else { return }
+        Task { await viewModel.load() }
+    }
+
+    /// Reloads the currently-visible ItemDetail screen, if any.
+    func refreshItemDetail() {
+        guard let viewModel = activeItemDetailViewModel else { return }
+        Task { await viewModel.load() }
+    }
+
+    // MARK: View-model factories
+
+    private func makeRootViewModel() -> HomeViewModel {
+        HomeViewModel(
+            fetchDefaultHome: DefaultFetchDefaultHomeUseCase(homeRepository: container.homeRepository),
+            fetchRooms: DefaultFetchRoomsUseCase(roomRepository: container.roomRepository),
+            fetchRecent: DefaultFetchRecentItemsUseCase(itemRepository: container.itemRepository),
+            fetchImportant: DefaultFetchImportantItemsUseCase(itemRepository: container.itemRepository),
+            configuration: container.configuration,
+            logger: container.logger
         )
     }
 
-    private func title(for route: HomeRoute) -> String {
-        switch route {
-        case .roomDetail:          return "Room Detail"
-        case .createRoom:          return "New Room"
-        case .editRoom:            return "Edit Room"
-        case .itemDetail:          return "Item Detail"
-        case .updateItemLocation:  return "Update Location"
-        case .scanRoom:            return "Scan Room"
+    /// Reuses the currently-active room detail view model when the requested
+    /// room matches it, instead of always constructing a new one. See the
+    /// note on `makeItemDetailViewModel` for why this guard matters.
+    func makeRoomDetailViewModel(roomID: UUID) -> RoomDetailViewModel {
+        if let existing = activeRoomDetailViewModel, existing.roomID == roomID {
+            return existing
         }
+        let viewModel = RoomDetailViewModel(
+            roomID: roomID,
+            fetchRoom: DefaultFetchRoomUseCase(roomRepository: container.roomRepository),
+            fetchItems: DefaultFetchItemsForRoomUseCase(itemRepository: container.itemRepository),
+            deleteRoom: DefaultDeleteRoomUseCase(
+                roomRepository: container.roomRepository,
+                itemRepository: container.itemRepository,
+                snapshotRepository: container.snapshotRepository,
+                imageStorage: container.imageStorage
+            ),
+            logger: container.logger
+        )
+        activeRoomDetailViewModel = viewModel
+        return viewModel
     }
 
-    private func symbolName(for route: HomeRoute) -> String {
+    func makeCreateRoomViewModel(homeID: UUID) -> CreateRoomViewModel {
+        CreateRoomViewModel(
+            homeID: homeID,
+            createRoom: DefaultCreateRoomUseCase(
+                roomRepository: container.roomRepository,
+                imageStorage: container.imageStorage
+            ),
+            logger: container.logger
+        )
+    }
+
+    /// Reuses the currently-active item detail view model when the requested
+    /// item matches it, instead of always constructing a new one. Without
+    /// this, SwiftUI re-invoking `destination(for:)` for a route already
+    /// resident in the path (e.g. because `path` mutates when
+    /// update-location gets pushed on top of it) would silently build a
+    /// throwaway `ItemDetailViewModel` and repoint `activeItemDetailViewModel`
+    /// at it, while the screen actually on screen stays bound to the
+    /// original instance via its own `@State`. `refreshItemDetail()` would
+    /// then reload the wrong, invisible view model.
+    func makeItemDetailViewModel(itemID: UUID) -> ItemDetailViewModel {
+        if let existing = activeItemDetailViewModel, existing.itemID == itemID {
+            return existing
+        }
+        let viewModel = ItemDetailViewModel(
+            itemID: itemID,
+            fetchDetail: DefaultFetchItemDetailUseCase(
+                itemRepository: container.itemRepository,
+                roomRepository: container.roomRepository,
+                snapshotRepository: container.snapshotRepository
+            ),
+            deleteItem: DefaultDeleteItemUseCase(
+                itemRepository: container.itemRepository,
+                snapshotRepository: container.snapshotRepository,
+                imageStorage: container.imageStorage
+            ),
+            toggleImportance: DefaultToggleItemImportanceUseCase(itemRepository: container.itemRepository),
+            logger: container.logger
+        )
+        activeItemDetailViewModel = viewModel
+        return viewModel
+    }
+
+    func makeEditRoomViewModel(roomID: UUID) -> EditRoomViewModel {
+        EditRoomViewModel(
+            roomID: roomID,
+            fetchRoom: DefaultFetchRoomUseCase(roomRepository: container.roomRepository),
+            updateRoom: DefaultUpdateRoomUseCase(
+                roomRepository: container.roomRepository,
+                imageStorage: container.imageStorage
+            ),
+            logger: container.logger
+        )
+    }
+
+    func makeUpdateItemLocationViewModel(itemID: UUID) -> UpdateItemLocationViewModel {
+        UpdateItemLocationViewModel(
+            itemID: itemID,
+            fetchDetail: DefaultFetchItemDetailUseCase(
+                itemRepository: container.itemRepository,
+                roomRepository: container.roomRepository,
+                snapshotRepository: container.snapshotRepository
+            ),
+            updateLocation: DefaultUpdateItemLocationUseCase(
+                itemRepository: container.itemRepository,
+                snapshotRepository: container.snapshotRepository,
+                imageStorage: container.imageStorage
+            ),
+            logger: container.logger
+        )
+    }
+
+    // MARK: Destinations
+
+    @ViewBuilder
+    func destination(for route: HomeRoute) -> some View {
         switch route {
-        case .roomDetail:          return "door.left.hand.open"
-        case .createRoom:          return "plus.rectangle.on.rectangle"
-        case .editRoom:            return "pencil"
-        case .itemDetail:          return "shippingbox"
-        case .updateItemLocation:  return "mappin.and.ellipse"
-        case .scanRoom:            return "camera.viewfinder"
+        case .roomDetail(let roomID):
+            RoomDetailView(
+                coordinator: self,
+                viewModel: makeRoomDetailViewModel(roomID: roomID)
+            )
+
+        case .createRoom:
+            CreateRoomHost(coordinator: self)
+
+        case .editRoom(let roomID):
+            EditRoomView(
+                coordinator: self,
+                viewModel: makeEditRoomViewModel(roomID: roomID)
+            )
+
+        case .itemDetail(let itemID):
+            ItemDetailView(
+                navigator: self,
+                viewModel: makeItemDetailViewModel(itemID: itemID)
+            )
+
+        case .updateItemLocation(let itemID):
+            UpdateItemLocationView(
+                navigator: self,
+                viewModel: makeUpdateItemLocationViewModel(itemID: itemID)
+            )
+
+        case .scanRoom(let roomID):
+            ScanRootView(
+                homeCoordinator: self,
+                coordinator: ScanCoordinator(roomID: roomID, container: container)
+            )
+        }
+    }
+}
+
+extension HomeCoordinator: ItemDetailNavigator {
+    func pushUpdateItemLocation(itemID: UUID) {
+        push(.updateItemLocation(itemID: itemID))
+    }
+
+    func popTop() { popLast() }
+
+    /// Item-flow mutations can affect the Home dashboard (recent + important
+    /// lists), the Room Detail item grid, and the current item detail screen
+    /// (when an update-location save returns).
+    func refreshAfterItemMutation() {
+        refreshItemDetail()
+        refreshRoomDetail()
+        refreshHome()
+    }
+}
+
+/// Fetches the default home before showing the CreateRoom form, so the view
+/// model doesn't have to juggle two async states. Home lookup rarely fails
+/// (`HomeRepository.fetchDefaultHome()` creates one if missing), but we still
+/// present an error state on failure.
+private struct CreateRoomHost: View {
+    let coordinator: HomeCoordinator
+
+    @State private var homeID: UUID?
+    @State private var error: UserFacingError?
+
+    var body: some View {
+        Group {
+            if let homeID {
+                CreateRoomView(
+                    coordinator: coordinator,
+                    viewModel: coordinator.makeCreateRoomViewModel(homeID: homeID)
+                )
+            } else if let error {
+                ErrorStateView(error: error) { Task { await load() } }
+            } else {
+                LoadingView()
+            }
+        }
+        .task { await load() }
+    }
+
+    private func load() async {
+        do {
+            let home = try await coordinator.container.homeRepository.fetchDefaultHome()
+            homeID = home.id
+            error = nil
+        } catch {
+            self.error = UserFacingError.from(error)
         }
     }
 }

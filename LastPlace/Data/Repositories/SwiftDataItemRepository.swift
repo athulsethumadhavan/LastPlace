@@ -9,6 +9,7 @@
 
 import Foundation
 import SwiftData
+import WidgetKit
 
 @ModelActor
 actor SwiftDataItemRepository: ItemRepository {
@@ -84,10 +85,21 @@ actor SwiftDataItemRepository: ItemRepository {
         }
     }
 
+    /// Without `@Attribute(.unique)` (unsupported by CloudKit-backed
+    /// SwiftData) nothing at the persistence layer stops a second insert
+    /// with the same `id` from creating a duplicate row, so this checks
+    /// first and updates in place if one is already there.
     func create(_ item: StoredItem) async throws -> StoredItem {
         let validated = try item.validated()
+        if let existing = try findEntity(id: validated.id) {
+            StoredItemMapper.apply(validated, to: existing)
+            try linkRoom(for: existing)
+            try saveOrThrow()
+            return StoredItemMapper.toDomain(existing)
+        }
         let entity = StoredItemMapper.toEntity(validated)
         modelContext.insert(entity)
+        try linkRoom(for: entity)
         try saveOrThrow()
         return StoredItemMapper.toDomain(entity)
     }
@@ -96,6 +108,7 @@ actor SwiftDataItemRepository: ItemRepository {
         let validated = try item.validated()
         let entity = try fetchEntity(id: validated.id)
         StoredItemMapper.apply(validated, to: entity)
+        try linkRoom(for: entity)
         try saveOrThrow()
         return StoredItemMapper.toDomain(entity)
     }
@@ -116,6 +129,7 @@ actor SwiftDataItemRepository: ItemRepository {
         let entity = try fetchEntity(id: itemID)
         entity.roomID = toRoomID
         entity.updatedAt = Date()
+        try linkRoom(for: entity)
         try saveOrThrow()
         return StoredItemMapper.toDomain(entity)
     }
@@ -149,11 +163,43 @@ actor SwiftDataItemRepository: ItemRepository {
         }
     }
 
+    /// Plain existence check used by `create`'s dedupe guard — `nil` means
+    /// not found, unlike `fetchEntity` which throws `.notFound`.
+    private func findEntity(id: UUID) throws -> StoredItemEntity? {
+        let target = id
+        let descriptor = FetchDescriptor<StoredItemEntity>(predicate: #Predicate { $0.id == target })
+        do {
+            return try modelContext.fetch(descriptor).first
+        } catch {
+            throw RepositoryError.persistenceFailed(underlying: error.localizedDescription)
+        }
+    }
+
+    /// Keeps the `room` relationship pointer in sync with the flat `roomID`
+    /// field — needed for CloudKit sharing's graph traversal (see the doc
+    /// comment on `HomeEntity.rooms`). A no-op if it's already correct, so
+    /// this is cheap to call unconditionally on every write.
+    private func linkRoom(for entity: StoredItemEntity) throws {
+        guard entity.room?.id != entity.roomID else { return }
+        let target = entity.roomID
+        let descriptor = FetchDescriptor<RoomEntity>(predicate: #Predicate { $0.id == target })
+        do {
+            entity.room = try modelContext.fetch(descriptor).first
+        } catch {
+            throw RepositoryError.persistenceFailed(underlying: error.localizedDescription)
+        }
+    }
+
+    /// Reloading widget timelines on every save is a bit coarse, but
+    /// `WidgetCenter` calls are cheap and system-throttled, so precision
+    /// isn't worth chasing here — the Recent Items widget wants to catch
+    /// every one of these anyway.
     private func saveOrThrow() throws {
         do {
             try modelContext.save()
         } catch {
             throw RepositoryError.persistenceFailed(underlying: error.localizedDescription)
         }
+        WidgetCenter.shared.reloadAllTimelines()
     }
 }

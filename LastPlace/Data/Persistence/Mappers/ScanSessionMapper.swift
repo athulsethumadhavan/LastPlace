@@ -27,4 +27,15 @@ enum ScanSessionMapper {
             statusRaw: session.status.rawValue
         )
     }
+
+    /// Used by the repository's create-path dedupe guard: if a session with
+    /// this `id` already exists (e.g. a CloudKit-merge race), overwrite it in
+    /// place instead of inserting a second row.
+    static func apply(_ session: ScanSession, to entity: ScanSessionEntity) {
+        entity.roomID = session.roomID
+        entity.startedAt = session.startedAt
+        entity.completedAt = session.completedAt
+        entity.capturedImagePaths = session.capturedImagePaths
+        entity.statusRaw = session.status.rawValue
+    }
 }

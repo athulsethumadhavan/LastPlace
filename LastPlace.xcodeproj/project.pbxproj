@@ -6,6 +6,12 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		59BC672D3008B52F0097DFB1 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 59BC672C3008B52F0097DFB1 /* WidgetKit.framework */; };
+		59BC672F3008B52F0097DFB1 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 59BC672E3008B52F0097DFB1 /* SwiftUI.framework */; };
+		59BC673E3008B5300097DFB1 /* LastPlaceWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 59BC672A3008B52F0097DFB1 /* LastPlaceWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		59055C593004B15000C2437B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -21,17 +27,146 @@
 			remoteGlobalIDString = 59055C4A3004B14F00C2437B;
 			remoteInfo = LastPlace;
 		};
+		59BC673C3008B5300097DFB1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 59055C433004B14F00C2437B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 59BC67293008B52F0097DFB1;
+			remoteInfo = LastPlaceWidgetExtension;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		59BC67433008B5300097DFB1 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				59BC673E3008B5300097DFB1 /* LastPlaceWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		59055C4B3004B14F00C2437B /* LastPlace.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LastPlace.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		59055C583004B15000C2437B /* LastPlaceTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LastPlaceTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		59055C623004B15000C2437B /* LastPlaceUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LastPlaceUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		59BC672A3008B52F0097DFB1 /* LastPlaceWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LastPlaceWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		59BC672C3008B52F0097DFB1 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		59BC672E3008B52F0097DFB1 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		59BC689D3008B9ED0097DFB1 /* LastPlaceWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = LastPlaceWidgetExtension.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		59BC3F5E30069BEE0097DFB1 /* Exceptions for "LastPlace" folder in "LastPlace" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 59055C4A3004B14F00C2437B /* LastPlace */;
+		};
+		59BC67423008B5300097DFB1 /* Exceptions for "LastPlaceWidget" folder in "LastPlaceWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 59BC67293008B52F0097DFB1 /* LastPlaceWidgetExtension */;
+		};
+		59BC68243008B8FD0097DFB1 /* Exceptions for "LastPlace" folder in "LastPlaceWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Core/Storage/ImageStorageService.swift,
+				Data/Persistence/Mappers/ChecklistMapper.swift,
+				Data/Persistence/Mappers/HomeMapper.swift,
+				Data/Persistence/Mappers/ItemSnapshotMapper.swift,
+				Data/Persistence/Mappers/RoomMapper.swift,
+				Data/Persistence/Mappers/ScanSessionMapper.swift,
+				Data/Persistence/Mappers/StoredItemMapper.swift,
+				Data/Persistence/Models/ChecklistEntity.swift,
+				Data/Persistence/Models/ChecklistEntryEntity.swift,
+				Data/Persistence/Models/HomeEntity.swift,
+				Data/Persistence/Models/ItemSnapshotEntity.swift,
+				Data/Persistence/Models/RoomEntity.swift,
+				Data/Persistence/Models/ScanSessionEntity.swift,
+				Data/Persistence/Models/StoredItemEntity.swift,
+				Data/Persistence/SwiftDataContainerFactory.swift,
+				Data/Repositories/SwiftDataChecklistRepository.swift,
+				Data/Repositories/SwiftDataHomeRepository.swift,
+				Data/Repositories/SwiftDataItemRepository.swift,
+				Data/Repositories/SwiftDataRoomRepository.swift,
+				Data/Repositories/SwiftDataScanRepository.swift,
+				Data/Repositories/SwiftDataSnapshotRepository.swift,
+				Domain/Entities/Checklist.swift,
+				Domain/Entities/ChecklistDetail.swift,
+				Domain/Entities/ChecklistEntry.swift,
+				Domain/Entities/DetectedObject.swift,
+				Domain/Entities/Home.swift,
+				Domain/Entities/ItemCategory.swift,
+				Domain/Entities/ItemDetail.swift,
+				Domain/Entities/ItemSnapshot.swift,
+				Domain/Entities/Room.swift,
+				Domain/Entities/ScanSession.swift,
+				Domain/Entities/SearchResults.swift,
+				Domain/Entities/StoredItem.swift,
+				Domain/Errors/CameraError.swift,
+				Domain/Errors/ImageStorageError.swift,
+				Domain/Errors/PermissionError.swift,
+				Domain/Errors/RepositoryError.swift,
+				Domain/Errors/ValidationError.swift,
+				Domain/Repositories/ChecklistRepository.swift,
+				Domain/Repositories/HomeRepository.swift,
+				Domain/Repositories/ItemRepository.swift,
+				Domain/Repositories/RoomRepository.swift,
+				Domain/Repositories/ScanRepository.swift,
+				Domain/Repositories/SnapshotRepository.swift,
+				Domain/UseCases/Checklists/AddChecklistEntryUseCase.swift,
+				Domain/UseCases/Checklists/CreateChecklistUseCase.swift,
+				Domain/UseCases/Checklists/DeleteChecklistEntryUseCase.swift,
+				Domain/UseCases/Checklists/DeleteChecklistUseCase.swift,
+				Domain/UseCases/Checklists/FetchChecklistDetailUseCase.swift,
+				Domain/UseCases/Checklists/FetchChecklistsUseCase.swift,
+				Domain/UseCases/Checklists/ResetChecklistUseCase.swift,
+				Domain/UseCases/Checklists/ToggleChecklistItemUseCase.swift,
+				Domain/UseCases/Homes/CreateHomeUseCase.swift,
+				Domain/UseCases/Homes/FetchDefaultHomeUseCase.swift,
+				Domain/UseCases/Homes/FetchHomesUseCase.swift,
+				Domain/UseCases/Items/AddItemSnapshotUseCase.swift,
+				Domain/UseCases/Items/DeleteItemUseCase.swift,
+				Domain/UseCases/Items/FetchImportantItemsUseCase.swift,
+				Domain/UseCases/Items/FetchItemDetailUseCase.swift,
+				Domain/UseCases/Items/FetchItemsForRoomUseCase.swift,
+				Domain/UseCases/Items/FetchRecentItemsUseCase.swift,
+				Domain/UseCases/Items/MoveItemToRoomUseCase.swift,
+				Domain/UseCases/Items/SaveItemUseCase.swift,
+				Domain/UseCases/Items/SearchItemsUseCase.swift,
+				Domain/UseCases/Items/ToggleItemImportanceUseCase.swift,
+				Domain/UseCases/Items/UpdateItemLocationUseCase.swift,
+				Domain/UseCases/Rooms/CreateRoomUseCase.swift,
+				Domain/UseCases/Rooms/DeleteRoomUseCase.swift,
+				Domain/UseCases/Rooms/FetchRoomsUseCase.swift,
+				Domain/UseCases/Rooms/FetchRoomUseCase.swift,
+				Domain/UseCases/Rooms/UpdateRoomUseCase.swift,
+				Domain/UseCases/Scan/AppendScanImageUseCase.swift,
+				Domain/UseCases/Scan/CancelScanSessionUseCase.swift,
+				Domain/UseCases/Scan/CompleteScanSessionUseCase.swift,
+				Domain/UseCases/Scan/StartScanSessionUseCase.swift,
+				Domain/UseCases/Settings/DeleteAllDataUseCase.swift,
+				Domain/UseCases/Settings/FetchDataSummaryUseCase.swift,
+			);
+			target = 59BC67293008B52F0097DFB1 /* LastPlaceWidgetExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		59055C4D3004B14F00C2437B /* LastPlace */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				59BC3F5E30069BEE0097DFB1 /* Exceptions for "LastPlace" folder in "LastPlace" target */,
+				59BC68243008B8FD0097DFB1 /* Exceptions for "LastPlace" folder in "LastPlaceWidgetExtension" target */,
+			);
 			path = LastPlace;
 			sourceTree = "<group>";
 		};
@@ -43,6 +178,14 @@
 		59055C653004B15000C2437B /* LastPlaceUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = LastPlaceUITests;
+			sourceTree = "<group>";
+		};
+		59BC67303008B52F0097DFB1 /* LastPlaceWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				59BC67423008B5300097DFB1 /* Exceptions for "LastPlaceWidget" folder in "LastPlaceWidgetExtension" target */,
+			);
+			path = LastPlaceWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -69,15 +212,27 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		59BC67273008B52F0097DFB1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				59BC672F3008B52F0097DFB1 /* SwiftUI.framework in Frameworks */,
+				59BC672D3008B52F0097DFB1 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		59055C423004B14F00C2437B = {
 			isa = PBXGroup;
 			children = (
+				59BC689D3008B9ED0097DFB1 /* LastPlaceWidgetExtension.entitlements */,
 				59055C4D3004B14F00C2437B /* LastPlace */,
 				59055C5B3004B15000C2437B /* LastPlaceTests */,
 				59055C653004B15000C2437B /* LastPlaceUITests */,
+				59BC67303008B52F0097DFB1 /* LastPlaceWidget */,
+				59BC672B3008B52F0097DFB1 /* Frameworks */,
 				59055C4C3004B14F00C2437B /* Products */,
 			);
 			sourceTree = "<group>";
@@ -88,8 +243,18 @@
 				59055C4B3004B14F00C2437B /* LastPlace.app */,
 				59055C583004B15000C2437B /* LastPlaceTests.xctest */,
 				59055C623004B15000C2437B /* LastPlaceUITests.xctest */,
+				59BC672A3008B52F0097DFB1 /* LastPlaceWidgetExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		59BC672B3008B52F0097DFB1 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				59BC672C3008B52F0097DFB1 /* WidgetKit.framework */,
+				59BC672E3008B52F0097DFB1 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -102,10 +267,12 @@
 				59055C473004B14F00C2437B /* Sources */,
 				59055C483004B14F00C2437B /* Frameworks */,
 				59055C493004B14F00C2437B /* Resources */,
+				59BC67433008B5300097DFB1 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				59BC673D3008B5300097DFB1 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				59055C4D3004B14F00C2437B /* LastPlace */,
@@ -163,6 +330,28 @@
 			productReference = 59055C623004B15000C2437B /* LastPlaceUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		59BC67293008B52F0097DFB1 /* LastPlaceWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 59BC673F3008B5300097DFB1 /* Build configuration list for PBXNativeTarget "LastPlaceWidgetExtension" */;
+			buildPhases = (
+				59BC67263008B52F0097DFB1 /* Sources */,
+				59BC67273008B52F0097DFB1 /* Frameworks */,
+				59BC67283008B52F0097DFB1 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				59BC67303008B52F0097DFB1 /* LastPlaceWidget */,
+			);
+			name = LastPlaceWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = LastPlaceWidgetExtension;
+			productReference = 59BC672A3008B52F0097DFB1 /* LastPlaceWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -184,6 +373,9 @@
 						CreatedOnToolsVersion = 26.5;
 						TestTargetID = 59055C4A3004B14F00C2437B;
 					};
+					59BC67293008B52F0097DFB1 = {
+						CreatedOnToolsVersion = 26.5;
+					};
 				};
 			};
 			buildConfigurationList = 59055C463004B14F00C2437B /* Build configuration list for PBXProject "LastPlace" */;
@@ -203,6 +395,7 @@
 				59055C4A3004B14F00C2437B /* LastPlace */,
 				59055C573004B15000C2437B /* LastPlaceTests */,
 				59055C613004B15000C2437B /* LastPlaceUITests */,
+				59BC67293008B52F0097DFB1 /* LastPlaceWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -223,6 +416,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		59055C603004B15000C2437B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		59BC67283008B52F0097DFB1 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -253,6 +453,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		59BC67263008B52F0097DFB1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -265,6 +472,11 @@
 			isa = PBXTargetDependency;
 			target = 59055C4A3004B14F00C2437B /* LastPlace */;
 			targetProxy = 59055C633004B15000C2437B /* PBXContainerItemProxy */;
+		};
+		59BC673D3008B5300097DFB1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 59BC67293008B52F0097DFB1 /* LastPlaceWidgetExtension */;
+			targetProxy = 59BC673C3008B5300097DFB1 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -395,13 +607,19 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = LastPlace/LastPlace.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = J766WB3295;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LastPlace/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "LastPlace uses the camera to scan rooms and recognize the items inside them.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "LastPlace uses Face ID to keep your rooms and items locked when the app isn't in use.";
+				INFOPLIST_KEY_NSSiriUsageDescription = "LastPlace uses Siri to find items and add them to your checklists by voice.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UIBackgroundModes = "remote-notification";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -427,13 +645,19 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = LastPlace/LastPlace.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = J766WB3295;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LastPlace/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "LastPlace uses the camera to scan rooms and recognize the items inside them.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "LastPlace uses Face ID to keep your rooms and items locked when the app isn't in use.";
+				INFOPLIST_KEY_NSSiriUsageDescription = "LastPlace uses Siri to find items and add them to your checklists by voice.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UIBackgroundModes = "remote-notification";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -538,6 +762,68 @@
 			};
 			name = Release;
 		};
+		59BC67403008B5300097DFB1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = LastPlaceWidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = J766WB3295;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LastPlaceWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = LastPlaceWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.atsIOSDev.LastPlace.LastPlaceWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		59BC67413008B5300097DFB1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = LastPlaceWidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = J766WB3295;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LastPlaceWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = LastPlaceWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.atsIOSDev.LastPlace.LastPlaceWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -573,6 +859,15 @@
 			buildConfigurations = (
 				59055C733004B15000C2437B /* Debug */,
 				59055C743004B15000C2437B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		59BC673F3008B5300097DFB1 /* Build configuration list for PBXNativeTarget "LastPlaceWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				59BC67403008B5300097DFB1 /* Debug */,
+				59BC67413008B5300097DFB1 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
