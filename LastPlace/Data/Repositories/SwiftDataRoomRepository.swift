@@ -35,6 +35,7 @@ actor SwiftDataRoomRepository: RoomRepository {
         let validated = try room.validated()
         if let existing = try findEntity(id: validated.id) {
             RoomMapper.apply(validated, to: existing)
+            existing.syncStatusRaw = SyncStatus.pendingUpsert.rawValue
             try linkHome(for: existing)
             try saveOrThrow()
             return RoomMapper.toDomain(existing)
@@ -50,14 +51,21 @@ actor SwiftDataRoomRepository: RoomRepository {
         let validated = try room.validated()
         let entity = try fetchEntity(id: validated.id)
         RoomMapper.apply(validated, to: entity)
+        entity.syncStatusRaw = SyncStatus.pendingUpsert.rawValue
         try linkHome(for: entity)
         try saveOrThrow()
         return RoomMapper.toDomain(entity)
     }
 
+    /// See the doc comment on `SwiftDataHomeRepository.delete` for the
+    /// hard-delete-vs-`.pendingDelete` reasoning.
     func delete(roomID: UUID) async throws {
         let entity = try fetchEntity(id: roomID)
-        modelContext.delete(entity)
+        if entity.syncStatusRaw == SyncStatus.pendingUpsert.rawValue {
+            modelContext.delete(entity)
+        } else {
+            entity.syncStatusRaw = SyncStatus.pendingDelete.rawValue
+        }
         try saveOrThrow()
     }
 
@@ -89,9 +97,9 @@ actor SwiftDataRoomRepository: RoomRepository {
     }
 
     /// Keeps the `home` relationship pointer in sync with the flat `homeID`
-    /// field — needed for CloudKit sharing's graph traversal (see the doc
-    /// comment on `HomeEntity.rooms`). A no-op if it's already correct, so
-    /// this is cheap to call unconditionally on every write.
+    /// field (see the doc comment on `HomeEntity.rooms`). A no-op if it's
+    /// already correct, so this is cheap to call unconditionally on every
+    /// write.
     private func linkHome(for entity: RoomEntity) throws {
         guard entity.home?.id != entity.homeID else { return }
         let target = entity.homeID

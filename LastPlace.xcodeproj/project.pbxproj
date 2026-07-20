@@ -82,6 +82,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Core/Storage/ImageStorageService.swift,
+				Core/Sync/SyncStatus.swift,
 				Data/Persistence/Mappers/ChecklistMapper.swift,
 				Data/Persistence/Mappers/HomeMapper.swift,
 				Data/Persistence/Mappers/ItemSnapshotMapper.swift,

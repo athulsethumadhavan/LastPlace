@@ -75,6 +75,11 @@ struct SettingsView: View {
         .sheet(isPresented: $showingAuthTest) {
             AuthView(authService: coordinator.container.authService) { user in
                 showingAuthTest = false
+                // Doubles as the one-time "upload my existing local data"
+                // migration step -- every pre-existing row is already
+                // `.pendingUpsert` (see `SyncStatus`), so the very first
+                // sync after signing in pushes all of it.
+                Task { try? await coordinator.container.syncEngine.sync(userID: user.id) }
             }
         }
         .sheet(isPresented: $showingAccountTest) {

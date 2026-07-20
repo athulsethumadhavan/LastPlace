@@ -31,6 +31,13 @@ final class AppDependencyContainer {
     let appLockSettings: AppLockSettingsStore
     let biometricAuthenticator: BiometricAuthenticator
     let authService: AuthService
+    /// Push/pull against the Supabase tables from Phase 2. Constructed here
+    /// rather than taking it through `init` like everything else, since it
+    /// only ever needs the same `modelContainer` this container already has
+    /// -- there's no Mock variant to swap in for previews the way the other
+    /// services have, since it never runs unless something explicitly calls
+    /// `sync(userID:)`, which nothing in a preview does.
+    let syncEngine: SyncEngine
 
     /// Camera capture wraps AVCaptureSession, which shouldn't be shared across
     /// concurrent scans. The container vends a fresh instance per scan session
@@ -66,6 +73,7 @@ final class AppDependencyContainer {
         self.appLockSettings = appLockSettings
         self.biometricAuthenticator = biometricAuthenticator
         self.authService = authService
+        self.syncEngine = SyncEngine(modelContainer: modelContainer)
         self.homeRepository = homeRepository
         self.roomRepository = roomRepository
         self.itemRepository = itemRepository

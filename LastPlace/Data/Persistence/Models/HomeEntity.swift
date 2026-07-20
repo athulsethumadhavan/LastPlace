@@ -31,14 +31,19 @@ final class HomeEntity {
     var name: String = ""
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
+    /// See `SyncStatus` -- defaulting to `.pendingUpsert` means every row
+    /// that existed before this column was added is automatically queued
+    /// for upload the first time `SyncEngine` runs.
+    var syncStatusRaw: String = SyncStatus.pendingUpsert.rawValue
 
     @Relationship(deleteRule: .cascade, inverse: \RoomEntity.home)
     var rooms: [RoomEntity]? = []
 
-    init(id: UUID, name: String, createdAt: Date, updatedAt: Date) {
+    init(id: UUID, name: String, createdAt: Date, updatedAt: Date, syncStatusRaw: String = SyncStatus.pendingUpsert.rawValue) {
         self.id = id
         self.name = name
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.syncStatusRaw = syncStatusRaw
     }
 }
