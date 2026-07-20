@@ -93,6 +93,7 @@ actor SwiftDataItemRepository: ItemRepository {
         let validated = try item.validated()
         if let existing = try findEntity(id: validated.id) {
             StoredItemMapper.apply(validated, to: existing)
+            existing.syncStatusRaw = SyncStatus.pendingUpsert.rawValue
             try linkRoom(for: existing)
             try saveOrThrow()
             return StoredItemMapper.toDomain(existing)
@@ -108,6 +109,7 @@ actor SwiftDataItemRepository: ItemRepository {
         let validated = try item.validated()
         let entity = try fetchEntity(id: validated.id)
         StoredItemMapper.apply(validated, to: entity)
+        entity.syncStatusRaw = SyncStatus.pendingUpsert.rawValue
         try linkRoom(for: entity)
         try saveOrThrow()
         return StoredItemMapper.toDomain(entity)
@@ -121,6 +123,7 @@ actor SwiftDataItemRepository: ItemRepository {
         }
         entity.lastSeenAt = date
         entity.updatedAt = date
+        entity.syncStatusRaw = SyncStatus.pendingUpsert.rawValue
         try saveOrThrow()
         return StoredItemMapper.toDomain(entity)
     }
@@ -129,6 +132,7 @@ actor SwiftDataItemRepository: ItemRepository {
         let entity = try fetchEntity(id: itemID)
         entity.roomID = toRoomID
         entity.updatedAt = Date()
+        entity.syncStatusRaw = SyncStatus.pendingUpsert.rawValue
         try linkRoom(for: entity)
         try saveOrThrow()
         return StoredItemMapper.toDomain(entity)
@@ -138,13 +142,20 @@ actor SwiftDataItemRepository: ItemRepository {
         let entity = try fetchEntity(id: itemID)
         entity.isImportant = isImportant
         entity.updatedAt = Date()
+        entity.syncStatusRaw = SyncStatus.pendingUpsert.rawValue
         try saveOrThrow()
         return StoredItemMapper.toDomain(entity)
     }
 
+    /// See the doc comment on `SwiftDataHomeRepository.delete` for the
+    /// hard-delete-vs-`.pendingDelete` reasoning.
     func delete(itemID: UUID) async throws {
         let entity = try fetchEntity(id: itemID)
-        modelContext.delete(entity)
+        if entity.syncStatusRaw == SyncStatus.pendingUpsert.rawValue {
+            modelContext.delete(entity)
+        } else {
+            entity.syncStatusRaw = SyncStatus.pendingDelete.rawValue
+        }
         try saveOrThrow()
     }
 

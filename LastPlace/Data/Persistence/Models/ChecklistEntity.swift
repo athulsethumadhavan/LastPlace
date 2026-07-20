@@ -30,17 +30,20 @@ final class ChecklistEntity {
     var customLabel: String?
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
-
+    /// See `SyncStatus` on `HomeEntity`.
+    var syncStatusRaw: String = SyncStatus.pendingUpsert.rawValue
+    
     @Relationship(deleteRule: .cascade, inverse: \ChecklistEntryEntity.checklist)
     var entries: [ChecklistEntryEntity]? = []
-
+    
     init(
         id: UUID,
         name: String,
         typeKind: String,
         customLabel: String?,
         createdAt: Date,
-        updatedAt: Date
+        updatedAt: Date,
+        syncStatusRaw: String = SyncStatus.pendingUpsert.rawValue
     ) {
         self.id = id
         self.name = name
@@ -48,5 +51,6 @@ final class ChecklistEntity {
         self.customLabel = customLabel
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.syncStatusRaw = syncStatusRaw
     }
 }

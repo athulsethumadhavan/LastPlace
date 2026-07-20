@@ -25,6 +25,8 @@ final class RoomEntity {
     var coverImagePath: String?
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
+    /// See `SyncStatus` on `HomeEntity`.
+    var syncStatusRaw: String = SyncStatus.pendingUpsert.rawValue
 
     var home: HomeEntity?
 
@@ -38,7 +40,8 @@ final class RoomEntity {
         iconName: String,
         coverImagePath: String?,
         createdAt: Date,
-        updatedAt: Date
+        updatedAt: Date,
+        syncStatusRaw: String = SyncStatus.pendingUpsert.rawValue
     ) {
         self.id = id
         self.homeID = homeID
@@ -47,5 +50,6 @@ final class RoomEntity {
         self.coverImagePath = coverImagePath
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.syncStatusRaw = syncStatusRaw
     }
 }

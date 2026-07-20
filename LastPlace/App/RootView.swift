@@ -43,6 +43,7 @@ struct RootView: View {
         .preferredColorScheme(container.appearanceSettings.mode.colorScheme)
         .animation(.easeInOut(duration: 0.25), value: coordinator.flow)
         .task { await coordinator.start() }
+        .task { await syncIfSignedIn() }
         .onChange(of: scenePhase) { _, newPhase in
             // Re-arm the lock screen the moment the app leaves the
             // foreground, not just on relaunch — otherwise the app switcher
@@ -51,7 +52,23 @@ struct RootView: View {
             if newPhase == .background {
                 coordinator.lockIfNeeded()
             }
+            if newPhase == .active {
+                Task { await syncIfSignedIn() }
+            }
         }
+    }
+
+    /// Only meaningful once the user has actually signed in through one of
+    /// the Phase 1 auth flows -- while signed out (the default, "transition
+    /// window" state), this is a no-op and the app keeps working entirely
+    /// off local SwiftData, same as before any of this existed. Errors are
+    /// swallowed deliberately: a failed background sync shouldn't interrupt
+    /// whatever the person is doing, and every pending local change stays
+    /// queued (`.pendingUpsert`/`.pendingDelete`) to retry on the next
+    /// trigger regardless.
+    private func syncIfSignedIn() async {
+        guard let user = await container.authService.currentUser else { return }
+        try? await container.syncEngine.sync(userID: user.id)
     }
 }
 

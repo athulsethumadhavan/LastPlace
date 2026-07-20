@@ -46,6 +46,7 @@ actor SwiftDataChecklistRepository: ChecklistRepository {
         let validated = try checklist.validated()
         if let existing = try findChecklistEntity(id: validated.id) {
             ChecklistMapper.apply(validated, to: existing)
+            existing.syncStatusRaw = SyncStatus.pendingUpsert.rawValue
             try saveOrThrow()
             return ChecklistMapper.toDomain(existing)
         }
@@ -61,6 +62,7 @@ actor SwiftDataChecklistRepository: ChecklistRepository {
         let checklist = try fetchChecklistEntity(id: validated.checklistID)
         if let existing = try findEntryEntity(id: validated.id) {
             ChecklistEntryMapper.apply(validated, to: existing)
+            existing.syncStatusRaw = SyncStatus.pendingUpsert.rawValue
             existing.checklist = checklist
             try linkItem(for: existing)
             try saveOrThrow()
@@ -78,6 +80,7 @@ actor SwiftDataChecklistRepository: ChecklistRepository {
         let validated = try entry.validated()
         let entity = try fetchEntryEntity(id: validated.id)
         ChecklistEntryMapper.apply(validated, to: entity)
+        entity.syncStatusRaw = SyncStatus.pendingUpsert.rawValue
         try linkChecklist(for: entity)
         try linkItem(for: entity)
         try saveOrThrow()
@@ -87,6 +90,7 @@ actor SwiftDataChecklistRepository: ChecklistRepository {
     func toggle(entryID: UUID) async throws -> ChecklistEntry {
         let entity = try fetchEntryEntity(id: entryID)
         entity.isCompleted.toggle()
+        entity.syncStatusRaw = SyncStatus.pendingUpsert.rawValue
         try saveOrThrow()
         return ChecklistEntryMapper.toDomain(entity)
     }
@@ -100,6 +104,7 @@ actor SwiftDataChecklistRepository: ChecklistRepository {
             let entities = try modelContext.fetch(descriptor)
             for entity in entities {
                 entity.isCompleted = false
+                entity.syncStatusRaw = SyncStatus.pendingUpsert.rawValue
             }
         } catch {
             throw RepositoryError.persistenceFailed(underlying: error.localizedDescription)
@@ -107,6 +112,12 @@ actor SwiftDataChecklistRepository: ChecklistRepository {
         try saveOrThrow()
     }
 
+    /// See the doc comment on `SwiftDataHomeRepository.delete` for the
+    /// hard-delete-vs-`.pendingDelete` reasoning. A checklist's entries can
+    /// only ever be `.synced` if the checklist itself is too (push order
+    /// pushes checklists before entries, and the entries table's foreign
+    /// key requires the parent row to exist server-side first), so a
+    /// never-synced checklist's entries are always safe to hard-delete too.
     func delete(checklistID: UUID) async throws {
         let target = checklistID
         let checklist = try fetchChecklistEntity(id: checklistID)
@@ -116,19 +127,35 @@ actor SwiftDataChecklistRepository: ChecklistRepository {
         do {
             let entries = try modelContext.fetch(entryDescriptor)
             for entry in entries {
-                modelContext.delete(entry)
+                markEntryDeleted(entry)
             }
         } catch {
             throw RepositoryError.persistenceFailed(underlying: error.localizedDescription)
         }
-        modelContext.delete(checklist)
+        markChecklistDeleted(checklist)
         try saveOrThrow()
     }
 
     func delete(entryID: UUID) async throws {
         let entity = try fetchEntryEntity(id: entryID)
-        modelContext.delete(entity)
+        markEntryDeleted(entity)
         try saveOrThrow()
+    }
+
+    private func markChecklistDeleted(_ entity: ChecklistEntity) {
+        if entity.syncStatusRaw == SyncStatus.pendingUpsert.rawValue {
+            modelContext.delete(entity)
+        } else {
+            entity.syncStatusRaw = SyncStatus.pendingDelete.rawValue
+        }
+    }
+
+    private func markEntryDeleted(_ entity: ChecklistEntryEntity) {
+        if entity.syncStatusRaw == SyncStatus.pendingUpsert.rawValue {
+            modelContext.delete(entity)
+        } else {
+            entity.syncStatusRaw = SyncStatus.pendingDelete.rawValue
+        }
     }
 
     private func fetchChecklistEntity(id: UUID) throws -> ChecklistEntity {

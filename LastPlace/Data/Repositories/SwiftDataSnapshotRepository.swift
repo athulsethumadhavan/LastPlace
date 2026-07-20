@@ -28,6 +28,7 @@ actor SwiftDataSnapshotRepository: SnapshotRepository {
     func create(_ snapshot: ItemSnapshot) async throws -> ItemSnapshot {
         if let existing = try findEntity(id: snapshot.id) {
             ItemSnapshotMapper.apply(snapshot, to: existing)
+            existing.syncStatusRaw = SyncStatus.pendingUpsert.rawValue
             try linkItem(for: existing)
             try saveOrThrow()
             return ItemSnapshotMapper.toDomain(existing)
@@ -39,6 +40,8 @@ actor SwiftDataSnapshotRepository: SnapshotRepository {
         return ItemSnapshotMapper.toDomain(entity)
     }
 
+    /// See the doc comment on `SwiftDataHomeRepository.delete` for the
+    /// hard-delete-vs-`.pendingDelete` reasoning.
     func delete(snapshotID: UUID) async throws {
         let target = snapshotID
         let descriptor = FetchDescriptor<ItemSnapshotEntity>(predicate: #Predicate { $0.id == target })
@@ -46,7 +49,7 @@ actor SwiftDataSnapshotRepository: SnapshotRepository {
             guard let entity = try modelContext.fetch(descriptor).first else {
                 throw RepositoryError.notFound
             }
-            modelContext.delete(entity)
+            markDeleted(entity)
         } catch let error as RepositoryError {
             throw error
         } catch {
@@ -61,12 +64,22 @@ actor SwiftDataSnapshotRepository: SnapshotRepository {
         do {
             let entities = try modelContext.fetch(descriptor)
             for entity in entities {
-                modelContext.delete(entity)
+                markDeleted(entity)
             }
         } catch {
             throw RepositoryError.persistenceFailed(underlying: error.localizedDescription)
         }
         try saveOrThrow()
+    }
+
+    /// See the doc comment on `SwiftDataHomeRepository.delete` for the
+    /// hard-delete-vs-`.pendingDelete` reasoning.
+    private func markDeleted(_ entity: ItemSnapshotEntity) {
+        if entity.syncStatusRaw == SyncStatus.pendingUpsert.rawValue {
+            modelContext.delete(entity)
+        } else {
+            entity.syncStatusRaw = SyncStatus.pendingDelete.rawValue
+        }
     }
 
     /// Plain existence check used by `create`'s dedupe guard — `nil` means
