@@ -97,6 +97,7 @@ struct SearchView: View {
                 message: "Scan a room or add items manually, then come back to search for them.",
                 symbolName: "magnifyingglass"
             )
+            .frame(maxHeight: .infinity, alignment: .center)
         case .failed(let error):
             ErrorStateView(error: error, retryAction: { Task { await viewModel.refresh() } })
         case .loaded(let results):

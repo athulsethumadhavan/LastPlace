@@ -22,9 +22,9 @@ struct PrivacyView: View {
                         detail: "Room scans are processed with Apple's Vision framework directly on your phone. Nothing is uploaded to identify what's in a photo."
                     )
                     privacyRow(
-                        symbol: "icloud",
-                        title: "Synced privately through your iCloud",
-                        detail: "Rooms, items, and checklists sync through your private iCloud account so they're available on your other devices and backed up if you lose this one. LastPlace has no server of its own — Apple's CloudKit is the only place this data travels, and only your iCloud account can read it."
+                        symbol: "iphone",
+                        title: "Rooms, items, and checklists stay on this device",
+                        detail: "Everything you save is stored locally on your phone, with no cloud backup yet. Deleting the app or losing this device means losing that data too, unless you've backed up the whole device another way."
                     )
                     privacyRow(
                         symbol: "camera",

@@ -3,16 +3,20 @@
 <plist version="1.0">
 <dict>
 	<!--
-	LastPlace doesn't use ads, analytics, or any third-party SDK, and never
-	sends user data off-device except through the user's own private
-	CloudKit container (which Apple's data-collection definitions don't
-	treat as developer collection). So there's nothing to declare below
-	except the one "required reason API" the app actually calls:
-	UserDefaults, used by AppearanceSettingsStore, AppLockSettingsStore,
-	and UserDefaultsOnboardingPreferences to persist simple local
-	preferences. Reason CA92.1 covers reading/writing UserDefaults data
-	that's only ever accessed by this app (and its App Group, for the
-	widget) — not shared with or readable by any other developer's app.
+	NOTE: this manifest predates the Supabase/Google Sign-In/Sign in with
+	Apple work and is now out of date -- the app sends account data (email,
+	user ID) to Supabase and uses the GoogleSignIn-iOS SDK, neither of which
+	is declared below yet. This needs a real pass (NSPrivacyCollectedDataTypes
+	entries, third-party SDK manifests) before the next App Store submission;
+	tracked as a cross-cutting item in the roadmap doc. Left minimal for now
+	beyond removing the no-longer-true CloudKit claim.
+
+	The one "required reason API" currently declared: UserDefaults, used by
+	AppearanceSettingsStore, AppLockSettingsStore, and
+	UserDefaultsOnboardingPreferences to persist simple local preferences.
+	Reason CA92.1 covers reading/writing UserDefaults data that's only ever
+	accessed by this app (and its App Group, for the widget) — not shared
+	with or readable by any other developer's app.
 	-->
 	<key>NSPrivacyTracking</key>
 	<false/>
