@@ -5,13 +5,14 @@
 //  Builds the shared `ModelContainer`. Repositories create their own
 //  `@ModelActor`-backed `ModelContext` from this container.
 //
-//  CloudKit compatibility: every `@Model` in `schemaTypes` has to skip
-//  `@Attribute(.unique)` and give every non-optional property a default
-//  value — CloudKit-backed SwiftData rejects unique constraints outright and
-//  requires every attribute to be either Optional or defaulted. The
-//  uniqueness `.unique` used to buy is now enforced at the repository layer
-//  instead (see the `find*Entity`/dedupe-guard helpers in each
-//  `SwiftData*Repository.create`).
+//  Local-only store: this app no longer syncs through CloudKit (removed in
+//  favor of the Supabase-backed data layer landing in Phase 2 of the
+//  cross-platform roadmap). `schemaTypes` still avoids `@Attribute(.unique)`
+//  and gives every non-optional property a default value, since that's a
+//  reasonable SwiftData habit independent of CloudKit and changing it isn't
+//  worth the migration risk right now; uniqueness is enforced at the
+//  repository layer instead (see the `find*Entity`/dedupe-guard helpers in
+//  each `SwiftData*Repository.create`).
 //
 //  Store location: the widget extension needs to read the same data, which
 //  means the store has to live in the shared App Group container rather
@@ -44,39 +45,16 @@ enum SwiftDataContainerFactory {
 
     /// Production container backed by disk, in the App Group's shared
     /// container when that's available so the widget extension can read the
-    /// same store.
-    ///
-    /// Tries `cloudKitDatabase: .automatic` first, which syncs through
-    /// whatever iCloud container is declared in the app's entitlements.
-    /// That requires the iCloud capability (CloudKit service) to be enabled
-    /// in Xcode's Signing & Capabilities with a container assigned —
-    /// unlike some SwiftData failures, a missing/misconfigured entitlement
-    /// here throws at container creation rather than degrading gracefully,
-    /// so this falls back to a local-only configuration if that happens.
-    /// Both configurations point at the same on-disk store location, so
-    /// once the capability is added in Xcode, the fallback branch stops
-    /// being hit and existing local data starts syncing — nothing is lost
-    /// in the meantime.
+    /// same store. Local-only for now — no CloudKit, no other sync. Until
+    /// the Supabase data layer (roadmap Phase 2) ships, this is the only
+    /// copy of a user's data: nothing backs it up off-device.
     static func makeContainer() throws -> ModelContainer {
         let schema = Schema(schemaTypes)
-        let storeURL = resolvedStoreURL()
-        do {
-            let cloudConfiguration = ModelConfiguration(
-                schema: schema,
-                url: storeURL,
-                cloudKitDatabase: .automatic
-            )
-            return try ModelContainer(for: schema, configurations: [cloudConfiguration])
-        } catch {
-            let localConfiguration = ModelConfiguration(schema: schema, url: storeURL)
-            return try ModelContainer(for: schema, configurations: [localConfiguration])
-        }
+        let configuration = ModelConfiguration(schema: schema, url: resolvedStoreURL())
+        return try ModelContainer(for: schema, configurations: [configuration])
     }
 
-    /// In-memory container for previews and integration tests. CloudKit
-    /// sync requires a persistent store, so this stays local-only
-    /// (`cloudKitDatabase` defaults to `.none`) regardless of the production
-    /// container's setting.
+    /// In-memory container for previews and integration tests.
     static func makeInMemoryContainer() throws -> ModelContainer {
         let schema = Schema(schemaTypes)
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
@@ -86,10 +64,7 @@ enum SwiftDataContainerFactory {
     /// Lightweight, repository-only container for the widget extension —
     /// same store, but the widget has no reason to link `AppDependencyContainer`'s
     /// full dependency graph (Vision, AVFoundation, etc.), which would bloat
-    /// an extension that has a tight memory budget. CloudKit is left off
-    /// here deliberately: a widget's timeline refresh is a poor place to
-    /// eat the cost/latency of standing up CloudKit mirroring, and the main
-    /// app keeps the store synced regardless of what reads it.
+    /// an extension that has a tight memory budget.
     static func makeWidgetContainer() throws -> ModelContainer {
         let schema = Schema(schemaTypes)
         let configuration = ModelConfiguration(schema: schema, url: resolvedStoreURL())
@@ -152,8 +127,7 @@ enum SwiftDataContainerFactory {
     /// properties existed (`HomeEntity.rooms`, `RoomEntity.items`,
     /// `ItemSnapshotEntity.item`, `ChecklistEntryEntity.checklist`/
     /// `linkedItem`, etc.) — walks every entity whose relationship pointer
-    /// is still `nil` and resolves it from the existing flat UUID field, so
-    /// pre-migration data isn't left out of CloudKit's sharing graph.
+    /// is still `nil` and resolves it from the existing flat UUID field.
     ///
     /// Safe to call on every launch: entities that already have their
     /// relationship set are skipped (`where` clauses below), so after the

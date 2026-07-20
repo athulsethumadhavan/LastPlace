@@ -2,7 +2,18 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CKSharingSupported</key>
-	<true/>
+	<!-- Google Sign-In callback URL scheme, matching the iOS OAuth client's
+	     REVERSED_CLIENT_ID (see Core/Auth/GoogleAuthConfig.swift). -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.535511492713-o1h6gtq871qscau248famr3i9vujtudr</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>
