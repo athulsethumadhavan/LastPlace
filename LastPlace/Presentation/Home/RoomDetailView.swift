@@ -100,6 +100,11 @@ struct RoomDetailView: View {
             } label: {
                 Label("Scan room", systemImage: "camera.viewfinder")
             }
+            Button {
+                coordinator.push(.shareRoom(roomID: content.room.id))
+            } label: {
+                Label("Share room", systemImage: "person.crop.circle.badge.plus")
+            }
             Divider()
         }
         Button(role: .destructive) {

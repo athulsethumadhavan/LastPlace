@@ -163,6 +163,14 @@ final class HomeCoordinator {
         )
     }
 
+    func makeShareRoomViewModel(roomID: UUID) -> ShareRoomViewModel {
+        ShareRoomViewModel(
+            roomID: roomID,
+            roomSharingService: container.roomSharingService,
+            logger: container.logger
+        )
+    }
+
     func makeUpdateItemLocationViewModel(itemID: UUID) -> UpdateItemLocationViewModel {
         UpdateItemLocationViewModel(
             itemID: itemID,
@@ -217,6 +225,9 @@ final class HomeCoordinator {
                 homeCoordinator: self,
                 coordinator: ScanCoordinator(roomID: roomID, container: container)
             )
+
+        case .shareRoom(let roomID):
+            ShareRoomView(viewModel: makeShareRoomViewModel(roomID: roomID))
         }
     }
 }

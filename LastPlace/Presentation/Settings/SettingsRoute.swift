@@ -12,4 +12,6 @@ enum SettingsRoute: Hashable {
     case security
     case dataManagement
     case account
+    case sharedRooms
+    case sharedRoomDetail(roomID: UUID, ownerID: UUID)
 }

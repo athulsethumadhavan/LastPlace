@@ -76,6 +76,19 @@ final class SettingsCoordinator {
         )
     }
 
+    private func makeSharedRoomsViewModel() -> SharedRoomsViewModel {
+        SharedRoomsViewModel(roomSharingService: container.roomSharingService, logger: container.logger)
+    }
+
+    private func makeSharedRoomDetailViewModel(roomID: UUID, ownerID: UUID) -> SharedRoomDetailViewModel {
+        SharedRoomDetailViewModel(
+            roomID: roomID,
+            ownerID: ownerID,
+            roomSharingService: container.roomSharingService,
+            logger: container.logger
+        )
+    }
+
     // MARK: Destinations
 
     @ViewBuilder
@@ -95,6 +108,10 @@ final class SettingsCoordinator {
             AccountView(authService: container.authService) { [weak self] in
                 self?.onSignedOut?()
             }
+        case .sharedRooms:
+            SharedRoomsView(coordinator: self, viewModel: makeSharedRoomsViewModel())
+        case .sharedRoomDetail(let roomID, let ownerID):
+            SharedRoomDetailView(viewModel: makeSharedRoomDetailViewModel(roomID: roomID, ownerID: ownerID))
         }
     }
 }
