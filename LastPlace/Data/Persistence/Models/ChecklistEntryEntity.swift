@@ -32,6 +32,10 @@ final class ChecklistEntryEntity {
     var locationDescription: String?
     var isCompleted: Bool = false
     var sortOrder: Int = 0
+    /// See `SyncStatus` on `HomeEntity`. No `updatedAt` here (like snapshots),
+    /// so `SyncEngine`'s pull always lets a local `.pendingUpsert` row win
+    /// over whatever's on the server rather than comparing timestamps.
+    var syncStatusRaw: String = SyncStatus.pendingUpsert.rawValue
 
     var checklist: ChecklistEntity?
 
@@ -45,7 +49,8 @@ final class ChecklistEntryEntity {
         linkedItemID: UUID?,
         locationDescription: String? = nil,
         isCompleted: Bool,
-        sortOrder: Int
+        sortOrder: Int,
+        syncStatusRaw: String = SyncStatus.pendingUpsert.rawValue
     ) {
         self.id = id
         self.checklistID = checklistID
@@ -54,5 +59,6 @@ final class ChecklistEntryEntity {
         self.locationDescription = locationDescription
         self.isCompleted = isCompleted
         self.sortOrder = sortOrder
+        self.syncStatusRaw = syncStatusRaw
     }
 }

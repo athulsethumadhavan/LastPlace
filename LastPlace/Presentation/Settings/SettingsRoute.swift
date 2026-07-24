@@ -11,4 +11,5 @@ enum SettingsRoute: Hashable {
     case appearance
     case security
     case dataManagement
+    case account
 }

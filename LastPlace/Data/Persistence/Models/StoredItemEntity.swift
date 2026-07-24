@@ -30,6 +30,8 @@ final class StoredItemEntity {
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
     var isImportant: Bool = false
+    /// See `SyncStatus` on `HomeEntity`.
+    var syncStatusRaw: String = SyncStatus.pendingUpsert.rawValue
 
     var room: RoomEntity?
 
@@ -55,7 +57,8 @@ final class StoredItemEntity {
         lastSeenAt: Date,
         createdAt: Date,
         updatedAt: Date,
-        isImportant: Bool
+        isImportant: Bool,
+        syncStatusRaw: String = SyncStatus.pendingUpsert.rawValue
     ) {
         self.id = id
         self.roomID = roomID
@@ -68,5 +71,6 @@ final class StoredItemEntity {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.isImportant = isImportant
+        self.syncStatusRaw = syncStatusRaw
     }
 }

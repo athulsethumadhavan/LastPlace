@@ -7,14 +7,6 @@ import SwiftUI
 
 struct SettingsView: View {
     @Bindable var coordinator: SettingsCoordinator
-    // Temporary, test-only entry points for the Phase 1 auth work -- AuthView
-    // and AccountView aren't wired into the app's real launch/gating flow
-    // yet (deliberately, until Phase 2's data migration exists), so this is
-    // the only way to reach them and manually verify sign-in/out/delete
-    // against the live Supabase project. Remove this section once real
-    // gating lands.
-    @State private var showingAuthTest = false
-    @State private var showingAccountTest = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -46,13 +38,10 @@ struct SettingsView: View {
                     }
                     .padding(.bottom, 22)
 
-                    sectionLabel("Debug (Auth Testing)")
+                    sectionLabel("Account")
                     settingsCard {
-                        SettingsRow(title: "Test Sign In / Sign Up", symbol: "person.badge.key") {
-                            showingAuthTest = true
-                        }
-                        SettingsRow(title: "Test Account (Sign Out / Delete)", symbol: "person.crop.circle", showsDivider: false) {
-                            showingAccountTest = true
+                        SettingsRow(title: "Account", symbol: "person.crop.circle", showsDivider: false) {
+                            coordinator.push(.account)
                         }
                     }
                     .padding(.bottom, 22)
@@ -71,16 +60,6 @@ struct SettingsView: View {
         .navigationDestination(for: SettingsRoute.self) { route in
             coordinator.destination(for: route)
                 .toolbar(.hidden, for: .tabBar)
-        }
-        .sheet(isPresented: $showingAuthTest) {
-            AuthView(authService: coordinator.container.authService) { user in
-                showingAuthTest = false
-            }
-        }
-        .sheet(isPresented: $showingAccountTest) {
-            AccountView(authService: coordinator.container.authService) {
-                showingAccountTest = false
-            }
         }
     }
 

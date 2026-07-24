@@ -4,9 +4,8 @@
 //
 //  Combined sign-in / sign-up screen (a segmented toggle switches between the
 //  two, matching the "one screen, two modes" pattern most auth flows use).
-//  Not yet wired into app launch -- see the roadmap note on sequencing this
-//  after Phase 2's data-layer migration, so users aren't gated behind an
-//  account before there's anything server-side for that account to hold.
+//  Shown by `RootView` for `AppFlow.authRequired` -- a mandatory, non-
+//  dismissible gate at launch whenever there's no active Supabase session.
 //
 
 import AuthenticationServices
@@ -20,7 +19,7 @@ struct AuthView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     private enum Field {
-        case email, password
+        case fullName, email, password, confirmPassword
     }
 
     init(authService: AuthService, onAuthenticated: @escaping @MainActor (AuthUser) -> Void) {
@@ -33,8 +32,19 @@ struct AuthView: View {
             VStack(alignment: .leading, spacing: 24) {
                 header
 
+                if viewModel.mode == .signUp {
+                    fieldGroup(title: "Full name") {
+                        TextField("", text: $viewModel.fullName, prompt: placeholder("Jordan Lee"))
+                            .textContentType(.name)
+                            .textInputAutocapitalization(.words)
+                            .focused($focusedField, equals: .fullName)
+                            .submitLabel(.next)
+                            .onSubmit { focusedField = .email }
+                    }
+                }
+
                 fieldGroup(title: "Email") {
-                    TextField("you@example.com", text: $viewModel.email)
+                    TextField("", text: $viewModel.email, prompt: placeholder("you@example.com"))
                         .keyboardType(.emailAddress)
                         .textContentType(.emailAddress)
                         .textInputAutocapitalization(.never)
@@ -45,20 +55,44 @@ struct AuthView: View {
                 }
 
                 fieldGroup(title: "Password") {
-                    SecureField("At least 6 characters", text: $viewModel.password)
+                    SecureField("", text: $viewModel.password, prompt: placeholder("At least 6 characters"))
                         .textContentType(viewModel.mode == .signIn ? .password : .newPassword)
                         .focused($focusedField, equals: .password)
-                        .submitLabel(.go)
-                        .onSubmit { viewModel.submit() }
+                        .submitLabel(viewModel.mode == .signUp ? .next : .go)
+                        .onSubmit {
+                            if viewModel.mode == .signUp {
+                                focusedField = .confirmPassword
+                            } else {
+                                viewModel.submit()
+                            }
+                        }
                 }
 
                 if viewModel.mode == .signIn {
-                    Button("Forgot password?") {
-                        focusedField = nil
-                        showingForgotPassword = true
+                    HStack {
+                        Spacer()
+                        Button("Forgot password?") {
+                            focusedField = nil
+                            showingForgotPassword = true
+                        }
+                        .font(AppFont.body(12.5))
+                        .foregroundStyle(AppColor.accent)
                     }
-                    .font(AppFont.body(13.5))
-                    .foregroundStyle(AppColor.accent)
+                }
+
+                if viewModel.mode == .signUp {
+                    fieldGroup(title: "Confirm password") {
+                        SecureField("", text: $viewModel.confirmPassword, prompt: placeholder("At least 6 characters"))
+                            .textContentType(.newPassword)
+                            .focused($focusedField, equals: .confirmPassword)
+                            .submitLabel(.go)
+                            .onSubmit { viewModel.submit() }
+                    }
+                    if viewModel.passwordMismatch {
+                        Text("Passwords don't match.")
+                            .font(AppFont.body(12.5))
+                            .foregroundStyle(.red)
+                    }
                 }
 
                 if let errorMessage = viewModel.errorMessage {
@@ -78,16 +112,16 @@ struct AuthView: View {
 
                 dividerRow
 
+                googleButton
+
                 SignInWithAppleButton(
-                    .continue,
+                    viewModel.mode == .signUp ? .signUp : .signIn,
                     onRequest: { viewModel.prepareAppleRequest($0) },
                     onCompletion: { viewModel.handleAppleCompletion($0) }
                 )
                 .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
                 .frame(height: 52)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-
-                googleButton
 
                 toggleRow
             }
@@ -100,16 +134,35 @@ struct AuthView: View {
         .sheet(isPresented: $showingForgotPassword) {
             ForgotPasswordView(authService: authService, prefillEmail: viewModel.email)
         }
+        .fullScreenCover(isPresented: Binding(
+            get: { viewModel.pendingVerificationEmail != nil },
+            set: { isPresented in
+                if !isPresented { viewModel.pendingVerificationEmail = nil }
+            }
+        )) {
+            OTPView(email: viewModel.pendingVerificationEmail ?? "", authService: authService) { user in
+                viewModel.completeVerification(user)
+            }
+        }
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(viewModel.mode.headline)
-                .font(AppFont.heading(28))
-                .foregroundStyle(AppColor.textPrimary)
-            Text("LastPlace keeps your rooms and items in sync.")
-                .font(AppFont.body(14.5))
-                .foregroundStyle(AppColor.textSecondary)
+        VStack(alignment: .leading, spacing: 20) {
+            Image("AuthAppIcon")
+                .resizable()
+                .scaledToFill()
+                .frame(width: 64, height: 64)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .appCardShadow()
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(viewModel.mode.headline)
+                    .font(AppFont.heading(27))
+                    .foregroundStyle(AppColor.textPrimary)
+                Text(viewModel.mode.subheadline)
+                    .font(AppFont.body(14))
+                    .foregroundStyle(AppColor.textSecondary)
+            }
         }
     }
 
@@ -129,24 +182,43 @@ struct AuthView: View {
         }
     }
 
+    /// `TextField`/`SecureField`'s plain-string placeholder initializer
+    /// renders in the environment's tint color, which falls back to system
+    /// blue here since this project's `AccentColor` asset is unset -- the
+    /// `prompt:` initializer is the only way to give the placeholder its own
+    /// explicit color instead of inheriting that.
+    private func placeholder(_ text: String) -> Text {
+        Text(text).foregroundStyle(AppColor.textTertiary)
+    }
+
     private var dividerRow: some View {
         HStack(spacing: 10) {
             Rectangle().fill(AppColor.divider).frame(height: 1)
-            Text("or")
-                .font(AppFont.body(12.5))
-                .foregroundStyle(AppColor.textSecondary)
+            Text("or continue with")
+                .font(AppFont.body(12)).lineLimit(1).fixedSize()
+                .foregroundStyle(AppColor.textTertiary)
             Rectangle().fill(AppColor.divider).frame(height: 1)
         }
     }
 
+    /// Custom rather than the native `GIDSignInButton`: Google's own control
+    /// only ever renders its fixed "Sign in with Google" copy at its own
+    /// size/shadow, which reads as a mismatched floating card next to the
+    /// flat Apple button beside it. This still uses Google's real four-color
+    /// "G" logomark (`GoogleLogo` asset, rendered from Google's own SVG
+    /// artwork -- not a plain glyph) so it stays on-brand; only the
+    /// container chrome (size, border, copy) is custom, matching the rest of
+    /// this screen. Tapping it still goes through the same
+    /// `viewModel.signInWithGoogle()` -> `GIDSignIn` flow as before.
     private var googleButton: some View {
         Button {
             viewModel.signInWithGoogle()
         } label: {
-            HStack(spacing: 8) {
-                Text("G")
-                    .font(AppFont.heading(16, weight: .bold))
-                    .foregroundStyle(AppColor.accent)
+            HStack(spacing: 10) {
+                Image("GoogleLogo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 18, height: 18)
                 Text("Continue with Google")
                     .font(AppFont.heading(15))
                     .foregroundStyle(AppColor.textPrimary)

@@ -51,6 +51,7 @@ actor SwiftDataHomeRepository: HomeRepository {
         let draft = try Home(name: name).validated()
         if let existing = try findEntity(id: draft.id) {
             HomeMapper.apply(draft, to: existing)
+            existing.syncStatusRaw = SyncStatus.pendingUpsert.rawValue
             try saveOrThrow()
             return HomeMapper.toDomain(existing)
         }
@@ -67,13 +68,23 @@ actor SwiftDataHomeRepository: HomeRepository {
         domain.updatedAt = Date()
         let validated = try domain.validated()
         HomeMapper.apply(validated, to: entity)
+        entity.syncStatusRaw = SyncStatus.pendingUpsert.rawValue
         try saveOrThrow()
         return HomeMapper.toDomain(entity)
     }
 
+    /// A row Supabase has never seen (`.pendingUpsert`, never made it to
+    /// `.synced`) can just be hard-deleted -- there's nothing to tell the
+    /// server. A row Supabase already has needs `SyncEngine` to delete it
+    /// server-side first, so this only flags `.pendingDelete` and leaves the
+    /// actual `modelContext.delete` to the engine once that succeeds.
     func delete(homeID: UUID) async throws {
         let entity = try fetchEntity(id: homeID)
-        modelContext.delete(entity)
+        if entity.syncStatusRaw == SyncStatus.pendingUpsert.rawValue {
+            modelContext.delete(entity)
+        } else {
+            entity.syncStatusRaw = SyncStatus.pendingDelete.rawValue
+        }
         try saveOrThrow()
     }
 

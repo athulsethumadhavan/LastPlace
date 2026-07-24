@@ -9,12 +9,22 @@
 
 import Foundation
 
-/// The signed-in account. Deliberately minimal for Phase 1 — display name
-/// and avatar live in the `profiles` table and are read separately once a
-/// profile-fetching use case exists.
+/// The signed-in account. Deliberately minimal for Phase 1 — an avatar and
+/// any other profile data live in the `profiles` table and are read
+/// separately once a profile-fetching use case exists. `fullName` is the one
+/// exception: it's captured at sign-up (see the Sign Up screen's "Full name"
+/// field) and stored as Supabase Auth user metadata, so it's already
+/// available on the session/user object with no extra round-trip.
 struct AuthUser: Identifiable, Hashable, Sendable {
     let id: UUID
     let email: String?
+    let fullName: String?
+
+    init(id: UUID, email: String?, fullName: String? = nil) {
+        self.id = id
+        self.email = email
+        self.fullName = fullName
+    }
 }
 
 enum AuthError: LocalizedError, Sendable {
@@ -26,6 +36,13 @@ enum AuthError: LocalizedError, Sendable {
     case passwordResetFailed(underlying: String)
     case accountDeletionFailed(underlying: String)
     case sessionUnavailable
+    /// Sign-in was rejected because this account was never verified after
+    /// signing up (Supabase's "Confirm email" project setting is on). Kept
+    /// distinct from `.signInFailed` so the UI can route to the OTP screen
+    /// instead of just showing an error message.
+    case emailNotConfirmed(email: String)
+    case otpVerificationFailed(underlying: String)
+    case otpResendFailed(underlying: String)
 
     var errorDescription: String? {
         switch self {
@@ -45,8 +62,23 @@ enum AuthError: LocalizedError, Sendable {
             "Couldn't delete your account: \(underlying)"
         case .sessionUnavailable:
             "You're not signed in."
+        case .emailNotConfirmed:
+            "Please verify your email before signing in."
+        case .otpVerificationFailed(let underlying):
+            "Couldn't verify that code: \(underlying)"
+        case .otpResendFailed(let underlying):
+            "Couldn't resend the code: \(underlying)"
         }
     }
+}
+
+/// What happens right after `AuthService.signUp` succeeds depends on this
+/// Supabase project's "Confirm email" setting: if it's on (recommended, and
+/// the assumed default here), there's no session yet and the UI must show
+/// the OTP screen before the account is actually usable.
+enum SignUpResult: Sendable {
+    case signedIn(AuthUser)
+    case verificationRequired(email: String)
 }
 
 protocol AuthService: Sendable {
@@ -60,8 +92,20 @@ protocol AuthService: Sendable {
     /// this to decide whether to show the signed-out or signed-in flow.
     var userChanges: AsyncStream<AuthUser?> { get }
 
-    func signUp(email: String, password: String) async throws -> AuthUser
+    func signUp(email: String, password: String, fullName: String) async throws -> SignUpResult
+    /// Throws `AuthError.emailNotConfirmed` (not `.signInFailed`) if this
+    /// account signed up but never completed OTP verification.
     func signIn(email: String, password: String) async throws -> AuthUser
+
+    /// Verifies the 6-digit code from Supabase's "Confirm signup" email
+    /// (see `SignUpResult.verificationRequired` / `AuthError.emailNotConfirmed`)
+    /// and returns the now-signed-in user.
+    func verifyOTP(email: String, token: String) async throws -> AuthUser
+
+    /// Re-sends that same confirmation code -- used for an explicit "Resend"
+    /// tap on the OTP screen, and automatically when a sign-in attempt
+    /// reveals the account was never verified in the first place.
+    func resendVerificationCode(email: String) async throws
 
     /// `idToken`/`nonce` come from an `ASAuthorizationAppleIDCredential`
     /// (see `SignInWithAppleButton` in the Sign In screen).

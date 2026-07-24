@@ -25,6 +25,11 @@ final class ItemSnapshotEntity {
     var capturedAt: Date = Date()
     var confidence: Double = 0
     var sourceRaw: String = ""
+    /// See `SyncStatus` on `HomeEntity`. Snapshots are effectively
+    /// immutable once captured (no `updatedAt`), so this only ever
+    /// transitions `.pendingUpsert` -> `.synced` -> (maybe) `.pendingDelete`,
+    /// never re-enters `.pendingUpsert` after first sync.
+    var syncStatusRaw: String = SyncStatus.pendingUpsert.rawValue
 
     var item: StoredItemEntity?
 
@@ -36,7 +41,8 @@ final class ItemSnapshotEntity {
         locationDescription: String,
         capturedAt: Date,
         confidence: Double,
-        sourceRaw: String
+        sourceRaw: String,
+        syncStatusRaw: String = SyncStatus.pendingUpsert.rawValue
     ) {
         self.id = id
         self.itemID = itemID
@@ -46,5 +52,6 @@ final class ItemSnapshotEntity {
         self.capturedAt = capturedAt
         self.confidence = confidence
         self.sourceRaw = sourceRaw
+        self.syncStatusRaw = syncStatusRaw
     }
 }
