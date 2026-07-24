@@ -67,6 +67,20 @@ actor FileImageStorageService: ImageStorageService {
         }
     }
 
+    func imageExists(at path: String) async -> Bool {
+        fileManager.fileExists(atPath: rootDirectory.appendingPathComponent(path).path)
+    }
+
+    func restoreImageData(_ data: Data, at path: String) async throws {
+        guard !data.isEmpty else { throw ImageStorageError.invalidData }
+        let target = rootDirectory.appendingPathComponent(path)
+        do {
+            try data.write(to: target, options: .atomic)
+        } catch {
+            throw ImageStorageError.writeFailed(underlying: error.localizedDescription)
+        }
+    }
+
     private nonisolated func sanitized(_ identifier: String) -> String {
         let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_"))
         let scalars = identifier.unicodeScalars.map { allowed.contains($0) ? Character($0) : "-" }

@@ -22,4 +22,16 @@ protocol ImageStorageService: Sendable {
     /// Deletes the image file at the given relative path. Missing files are
     /// treated as a no-op.
     func deleteImage(at path: String) async throws
+
+    /// True if a local file already exists at this relative path. Used by
+    /// `SyncEngine` (Phase 3) to tell "needs uploading" apart from "needs
+    /// downloading" for a path a SwiftData entity already references.
+    func imageExists(at path: String) async -> Bool
+
+    /// Writes `data` at the *exact* given relative path, unlike
+    /// `saveImageData` which always mints a fresh one — needed to restore a
+    /// file at the same path a pulled/existing entity already points to
+    /// (e.g. after a reinstall, where the entity row exists locally again
+    /// but the image bytes never did).
+    func restoreImageData(_ data: Data, at path: String) async throws
 }

@@ -30,7 +30,18 @@
 //  builder shape (`.from(_:).select()/.upsert(_:)/.delete()`, `.eq(_:value:)`,
 //  `.execute()`/`.execute().value`) is stable across recent supabase-swift
 //  versions but should be the first thing checked against Xcode's
-//  autocomplete once this builds.
+//  autocomplete once this builds. Same caveat applies to the Storage calls
+//  added for Phase 3 (`client.storage.from(_:).upload(_:data:options:)`,
+//  `.download(path:)`) -- verify those first too, they're newer code than
+//  everything above and haven't been through even one build/fix cycle yet.
+//
+//  Phase 3 (photos): after the table sync above settles, `pushPendingImages`
+//  and `pullMissingImages` reconcile image *bytes* the same way -- upload
+//  local files Supabase doesn't have yet, download files a pulled/existing
+//  entity references but that don't exist on this device (the reinstall
+//  case). Image paths themselves aren't tracked in Postgres at all; they
+//  ride along as plain string columns on the tables above (`imagePath`,
+//  `coverImagePath`), so this only needs to look at what's already local.
 //
 
 import Foundation
@@ -48,7 +59,7 @@ actor SyncEngine {
     /// in the parent-before-child order would just cascade into failures
     /// for every table after it anyway, so there's nothing to gain from
     /// pressing on.
-    func sync(userID: UUID) async throws {
+    func sync(userID: UUID, imageStorage: ImageStorageService) async throws {
         try await pushHomes(userID: userID)
         try await pushRooms(userID: userID)
         try await pushItems(userID: userID)
@@ -62,6 +73,14 @@ actor SyncEngine {
         try await pullItemSnapshots(userID: userID)
         try await pullChecklists(userID: userID)
         try await pullChecklistEntries(userID: userID)
+
+        // Images last -- by this point the local entity rows (and their
+        // imagePath/coverImagePath columns) reflect the merged result of
+        // both directions above, so this is looking at the final,
+        // authoritative set of paths that ought to have a photo somewhere.
+        let referencedPaths = try collectReferencedImagePaths()
+        try await pushPendingImages(userID: userID, imageStorage: imageStorage, paths: referencedPaths)
+        try await pullMissingImages(userID: userID, imageStorage: imageStorage, paths: referencedPaths)
 
         WidgetCenter.shared.reloadAllTimelines()
     }
@@ -469,5 +488,70 @@ actor SyncEngine {
             modelContext.delete(local)
         }
         try modelContext.save()
+    }
+
+    // MARK: - Images (Phase 3)
+
+    /// Every non-nil `imagePath`/`coverImagePath` across the three entity
+    /// types that have one, deduplicated. Not scoped by sync status --
+    /// unlike the table rows, an image path itself has no local pending/
+    /// synced state of its own (`ImageUploadTracker` tracks that
+    /// separately), so every referenced path is a candidate for either
+    /// push or pull depending on where the bytes are actually missing.
+    private func collectReferencedImagePaths() throws -> Set<String> {
+        var paths = Set<String>()
+
+        let rooms = try modelContext.fetch(FetchDescriptor<RoomEntity>())
+        for room in rooms {
+            if let path = room.coverImagePath { paths.insert(path) }
+        }
+
+        let items = try modelContext.fetch(FetchDescriptor<StoredItemEntity>())
+        for item in items {
+            if let path = item.imagePath { paths.insert(path) }
+        }
+
+        let snapshots = try modelContext.fetch(FetchDescriptor<ItemSnapshotEntity>())
+        for snapshot in snapshots {
+            if let path = snapshot.imagePath { paths.insert(path) }
+        }
+
+        return paths
+    }
+
+    /// Uploads every referenced path that exists locally and hasn't been
+    /// uploaded before. A path that's referenced but doesn't exist locally
+    /// either (rare -- would mean it was never captured successfully) is
+    /// silently skipped here; `pullMissingImages` only tries to recover
+    /// paths that might exist *remotely*, which an upload-less path can't.
+    private func pushPendingImages(userID: UUID, imageStorage: ImageStorageService, paths: Set<String>) async throws {
+        for path in paths {
+            guard !ImageUploadTracker.isUploaded(path) else { continue }
+            guard await imageStorage.imageExists(at: path) else { continue }
+            let data = try await imageStorage.loadImageData(from: path)
+            try await client.storage.from("item-images").upload(
+                "\(userID)/\(path)",
+                data: data,
+                options: FileOptions(contentType: "image/jpeg", upsert: true)
+            )
+            ImageUploadTracker.markUploaded(path)
+        }
+    }
+
+    /// Downloads any referenced path that doesn't exist locally -- the
+    /// reinstall case, where the entity rows came back via the table pull
+    /// above but the image bytes never lived anywhere but the old install's
+    /// local disk. Best-effort: a path that was never actually uploaded
+    /// (e.g. the user deleted the app before their first sync ever ran)
+    /// simply fails the download and is left missing, same as today.
+    private func pullMissingImages(userID: UUID, imageStorage: ImageStorageService, paths: Set<String>) async throws {
+        for path in paths {
+            guard await imageStorage.imageExists(at: path) == false else { continue }
+            guard let data = try? await client.storage.from("item-images").download(path: "\(userID)/\(path)") else {
+                continue
+            }
+            try? await imageStorage.restoreImageData(data, at: path)
+            ImageUploadTracker.markUploaded(path)
+        }
     }
 }
