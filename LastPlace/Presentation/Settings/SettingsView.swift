@@ -38,6 +38,14 @@ struct SettingsView: View {
                     }
                     .padding(.bottom, 22)
 
+                    sectionLabel("Sharing")
+                    settingsCard {
+                        SettingsRow(title: "Shared Rooms", symbol: "person.2", showsDivider: false) {
+                            coordinator.push(.sharedRooms)
+                        }
+                    }
+                    .padding(.bottom, 22)
+
                     sectionLabel("Account")
                     settingsCard {
                         SettingsRow(title: "Account", symbol: "person.crop.circle", showsDivider: false) {

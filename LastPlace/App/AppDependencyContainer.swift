@@ -31,6 +31,11 @@ final class AppDependencyContainer {
     let appLockSettings: AppLockSettingsStore
     let biometricAuthenticator: BiometricAuthenticator
     let authService: AuthService
+    /// Phase 4 — Room Sharing. Reads/writes Supabase directly, like
+    /// `authService`, rather than going through `syncEngine`: shared-room
+    /// data belongs to another account and is never mirrored into this
+    /// device's local SwiftData store.
+    let roomSharingService: RoomSharingService
     /// Push/pull against the Supabase tables from Phase 2. Constructed here
     /// rather than taking it through `init` like everything else, since it
     /// only ever needs the same `modelContainer` this container already has
@@ -55,6 +60,7 @@ final class AppDependencyContainer {
         appLockSettings: AppLockSettingsStore,
         biometricAuthenticator: BiometricAuthenticator,
         authService: AuthService,
+        roomSharingService: RoomSharingService,
         homeRepository: HomeRepository,
         roomRepository: RoomRepository,
         itemRepository: ItemRepository,
@@ -73,6 +79,7 @@ final class AppDependencyContainer {
         self.appLockSettings = appLockSettings
         self.biometricAuthenticator = biometricAuthenticator
         self.authService = authService
+        self.roomSharingService = roomSharingService
         self.syncEngine = SyncEngine(modelContainer: modelContainer)
         self.homeRepository = homeRepository
         self.roomRepository = roomRepository
@@ -100,6 +107,7 @@ final class AppDependencyContainer {
             appLockSettings: AppLockSettingsStore(),
             biometricAuthenticator: LAContextBiometricAuthenticator(),
             authService: SupabaseAuthService(),
+            roomSharingService: SupabaseRoomSharingService(),
             homeRepository: SwiftDataHomeRepository(modelContainer: modelContainer),
             roomRepository: SwiftDataRoomRepository(modelContainer: modelContainer),
             itemRepository: SwiftDataItemRepository(modelContainer: modelContainer),
@@ -127,6 +135,7 @@ final class AppDependencyContainer {
             ),
             biometricAuthenticator: MockBiometricAuthenticator(),
             authService: MockAuthService(),
+            roomSharingService: MockRoomSharingService(),
             homeRepository: SwiftDataHomeRepository(modelContainer: modelContainer),
             roomRepository: SwiftDataRoomRepository(modelContainer: modelContainer),
             itemRepository: SwiftDataItemRepository(modelContainer: modelContainer),
