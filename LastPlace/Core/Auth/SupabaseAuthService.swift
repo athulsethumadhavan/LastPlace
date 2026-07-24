@@ -11,7 +11,16 @@
 //  names have shifted between versions in the past. The moment the package
 //  is added in Xcode, build this file first — Xcode's own autocomplete and
 //  compiler errors are the fastest way to catch any drift and are more
-//  trustworthy than this comment.
+//  trustworthy than this comment. Two spots added for the "Full name" field
+//  are unverified the same way: `client.auth.signUp(email:password:data:)`
+//  taking `data: [String: AnyJSON]`, and reading it back via
+//  `user.userMetadata["full_name"]?.stringValue` -- if `stringValue` isn't
+//  the right accessor, `AnyJSON`'s cases (`.string`, `.object`, etc.) are the
+//  fallback to pattern-match on directly. Same caveat for the OTP additions:
+//  `client.auth.verifyOTP(email:token:type:)` and
+//  `client.auth.resend(email:type:)` with `type: .signup`, and the
+//  string-matching used in `signIn` to detect an unconfirmed account (see
+//  the comment inline there).
 //
 
 import Foundation
@@ -49,10 +58,23 @@ final class SupabaseAuthService: AuthService {
         }
     }
 
-    func signUp(email: String, password: String) async throws -> AuthUser {
+    func signUp(email: String, password: String, fullName: String) async throws -> SignUpResult {
         do {
-            let response = try await client.auth.signUp(email: email, password: password)
-            return AuthUser(id: response.user.id, email: response.user.email)
+            // `data` lands in Supabase Auth's `raw_user_meta_data` -- no
+            // separate `profiles` write needed just to remember a name.
+            let response = try await client.auth.signUp(
+                email: email,
+                password: password,
+                data: ["full_name": .string(fullName)]
+            )
+            // A session comes back immediately only if this project's
+            // "Confirm email" setting is off. With it on (the assumed
+            // default -- see the OTP screen this powers), `response.session`
+            // is nil until `verifyOTP` succeeds.
+            guard let session = response.session else {
+                return .verificationRequired(email: email)
+            }
+            return .signedIn(AuthUser(session.user))
         } catch {
             throw AuthError.signUpFailed(underlying: error.localizedDescription)
         }
@@ -63,7 +85,43 @@ final class SupabaseAuthService: AuthService {
             let session = try await client.auth.signIn(email: email, password: password)
             return AuthUser(session.user)
         } catch {
-            throw AuthError.signInFailed(underlying: error.localizedDescription)
+            // VERIFY-BEFORE-TRUST: matching on the error's message text is a
+            // heuristic, not a typed case -- supabase-swift's Auth errors
+            // don't expose a stable "email not confirmed" case as of this
+            // writing. If a real unconfirmed-email sign-in attempt doesn't
+            // land here, check what Xcode actually surfaces for that error
+            // (likely an `AuthError` from the Supabase package, distinct
+            // from this file's own `AuthError`) and match on its real code
+            // instead of this string search.
+            let message = error.localizedDescription
+            if message.localizedCaseInsensitiveContains("email not confirmed")
+                || message.localizedCaseInsensitiveContains("email_not_confirmed")
+                || message.localizedCaseInsensitiveContains("not confirmed") {
+                throw AuthError.emailNotConfirmed(email: email)
+            }
+            throw AuthError.signInFailed(underlying: message)
+        }
+    }
+
+    func verifyOTP(email: String, token: String) async throws -> AuthUser {
+        do {
+            let response = try await client.auth.verifyOTP(email: email, token: token, type: .signup)
+            guard let session = response.session else {
+                throw AuthError.otpVerificationFailed(underlying: "No session was returned after verification.")
+            }
+            return AuthUser(session.user)
+        } catch let error as AuthError {
+            throw error
+        } catch {
+            throw AuthError.otpVerificationFailed(underlying: error.localizedDescription)
+        }
+    }
+
+    func resendVerificationCode(email: String) async throws {
+        do {
+            try await client.auth.resend(email: email, type: .signup)
+        } catch {
+            throw AuthError.otpResendFailed(underlying: error.localizedDescription)
         }
     }
 
@@ -135,6 +193,6 @@ final class SupabaseAuthService: AuthService {
 
 private extension AuthUser {
     init(_ user: Auth.User) {
-        self.init(id: user.id, email: user.email)
+        self.init(id: user.id, email: user.email, fullName: user.userMetadata["full_name"]?.stringValue)
     }
 }

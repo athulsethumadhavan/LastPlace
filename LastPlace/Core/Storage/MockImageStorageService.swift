@@ -29,4 +29,13 @@ actor MockImageStorageService: ImageStorageService {
     func deleteImage(at path: String) async throws {
         store.removeValue(forKey: path)
     }
+
+    func imageExists(at path: String) async -> Bool {
+        store[path] != nil
+    }
+
+    func restoreImageData(_ data: Data, at path: String) async throws {
+        guard !data.isEmpty else { throw ImageStorageError.invalidData }
+        store[path] = data
+    }
 }

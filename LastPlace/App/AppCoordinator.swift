@@ -22,13 +22,14 @@ final class AppCoordinator {
     }
 
     /// Runs at app launch. Enforces a minimum splash duration so the transition
-    /// doesn't feel like a flash, then decides between onboarding, the lock
-    /// screen, and main.
+    /// doesn't feel like a flash, then decides between onboarding, requiring
+    /// sign-in, the lock screen, and main.
     func start() async {
         let minimumDuration = container.configuration.splashMinimumDuration
         let deadline = Date().addingTimeInterval(minimumDuration)
 
         let hasOnboarded = await container.onboardingPreferences.hasCompletedOnboarding()
+        let currentUser = await container.authService.currentUser
 
         let remaining = deadline.timeIntervalSinceNow
         if remaining > 0 {
@@ -39,14 +40,40 @@ final class AppCoordinator {
             flow = .onboarding
             return
         }
+        guard currentUser != nil else {
+            flow = .authRequired
+            return
+        }
         flow = shouldLock ? .locked : .main
     }
 
     func completeOnboarding() {
         Task {
             await container.onboardingPreferences.setHasCompletedOnboarding(true)
-            flow = .main
+            flow = .authRequired
         }
+    }
+
+    /// Called from `AuthView`'s `onAuthenticated` closure once sign-in/up
+    /// succeeds. Goes through the same lock-or-main decision `start()`
+    /// makes, then kicks off an initial sync -- for a first-time sign-in
+    /// this is also what uploads whatever the person already had stored
+    /// locally (see `SyncStatus`'s doc comment on why no separate
+    /// migration step was needed).
+    func completeSignIn() {
+        flow = shouldLock ? .locked : .main
+        Task {
+            guard let user = await container.authService.currentUser else { return }
+            try? await container.syncEngine.sync(userID: user.id, imageStorage: container.imageStorage)
+        }
+    }
+
+    /// Called after `AccountView` has already signed the user out (or
+    /// deleted their account) via `AuthService` directly -- this just
+    /// reacts to that by sending the whole app back through the
+    /// `.authRequired` gate.
+    func signOut() {
+        flow = .authRequired
     }
 
     func resetOnboarding() {

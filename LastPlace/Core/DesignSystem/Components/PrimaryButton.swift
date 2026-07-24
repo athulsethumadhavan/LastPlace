@@ -42,6 +42,7 @@ struct PrimaryButton: View {
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity, minHeight: 52)
             .background(AppColor.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .appCardShadow()
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled || isLoading)

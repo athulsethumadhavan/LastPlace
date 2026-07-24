@@ -10,9 +10,9 @@ struct MainTabView: View {
     let container: AppDependencyContainer
     @State private var coordinator: MainTabCoordinator
 
-    init(container: AppDependencyContainer) {
+    init(container: AppDependencyContainer, onSignedOut: @escaping () -> Void) {
         self.container = container
-        _coordinator = State(initialValue: MainTabView.makeCoordinator(container: container))
+        _coordinator = State(initialValue: MainTabView.makeCoordinator(container: container, onSignedOut: onSignedOut))
         MainTabView.configureTabBarAppearance()
     }
 
@@ -95,7 +95,7 @@ struct MainTabView: View {
     }
 
     @MainActor
-    private static func makeCoordinator(container: AppDependencyContainer) -> MainTabCoordinator {
+    private static func makeCoordinator(container: AppDependencyContainer, onSignedOut: @escaping () -> Void) -> MainTabCoordinator {
         let homeCoordinator = HomeCoordinator(container: container)
         let searchCoordinator = SearchCoordinator(container: container)
         let checklistCoordinator = ChecklistCoordinator(container: container)
@@ -112,6 +112,12 @@ struct MainTabView: View {
                 Task { await searchCoordinator.searchViewModel.refresh() }
             }
         }
+        // Signing out (or deleting the account) in Settings needs to send
+        // the whole app back through `AppCoordinator`'s `.authRequired`
+        // gate, not just pop the Settings navigation stack -- this tab
+        // structure has no reference to `AppCoordinator` itself, so
+        // `RootView` hands the callback down through here instead.
+        settingsCoordinator.onSignedOut = onSignedOut
 
         return MainTabCoordinator(
             homeCoordinator: homeCoordinator,

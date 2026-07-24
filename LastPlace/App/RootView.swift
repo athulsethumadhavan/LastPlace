@@ -26,12 +26,18 @@ struct RootView: View {
                 OnboardingView(onFinished: { coordinator.completeOnboarding() })
                     .transition(.opacity)
 
+            case .authRequired:
+                AuthView(authService: container.authService) { _ in
+                    coordinator.completeSignIn()
+                }
+                .transition(.opacity)
+
             case .locked:
                 LockView(coordinator: coordinator)
                     .transition(.opacity)
 
             case .main:
-                MainTabView(container: container)
+                MainTabView(container: container, onSignedOut: { coordinator.signOut() })
                     .transition(.opacity)
 
             case .failed(let reason):
@@ -58,17 +64,17 @@ struct RootView: View {
         }
     }
 
-    /// Only meaningful once the user has actually signed in through one of
-    /// the Phase 1 auth flows -- while signed out (the default, "transition
-    /// window" state), this is a no-op and the app keeps working entirely
-    /// off local SwiftData, same as before any of this existed. Errors are
-    /// swallowed deliberately: a failed background sync shouldn't interrupt
-    /// whatever the person is doing, and every pending local change stays
-    /// queued (`.pendingUpsert`/`.pendingDelete`) to retry on the next
-    /// trigger regardless.
+    /// General-purpose sync trigger for every launch/foreground where a
+    /// session already exists -- `AppCoordinator.completeSignIn()` handles
+    /// the one-off sync immediately after a fresh sign-in; this is what
+    /// keeps things syncing on every subsequent open. Errors are swallowed
+    /// deliberately: a failed background sync shouldn't interrupt whatever
+    /// the person is doing, and every pending local change stays queued
+    /// (`.pendingUpsert`/`.pendingDelete`) to retry on the next trigger
+    /// regardless.
     private func syncIfSignedIn() async {
         guard let user = await container.authService.currentUser else { return }
-        try? await container.syncEngine.sync(userID: user.id)
+        try? await container.syncEngine.sync(userID: user.id, imageStorage: container.imageStorage)
     }
 }
 

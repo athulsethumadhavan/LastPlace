@@ -2,7 +2,11 @@
 //  ForgotPasswordView.swift
 //  LastPlace
 //
-//  Presented as a sheet from AuthView's "Forgot password?" link.
+//  Presented as a sheet from AuthView's "Forgot password?" link. Matches the
+//  design mock's "04 · Forgot password" screen: a plain back-chevron circle
+//  (no title bar, no system "Close" text) since the mock's pushed-screen
+//  chrome here is just the bare button, plus an accent-tinted icon badge
+//  above the heading.
 //
 
 import SwiftUI
@@ -17,36 +21,50 @@ struct ForgotPasswordView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 24) {
-                if viewModel.didSend {
-                    confirmation
-                } else {
-                    form
+        VStack(alignment: .leading, spacing: 0) {
+            AppNavCircleButton(systemName: "chevron.left") { dismiss() }
+                .padding(.horizontal, 14)
+                .padding(.top, 8)
+                .padding(.bottom, 12)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    if viewModel.didSend {
+                        confirmation
+                    } else {
+                        form
+                    }
                 }
-                Spacer()
-            }
-            .padding(.horizontal, 24)
-            .padding(.top, 32)
-            .background(AppColor.background)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Close") { dismiss() }
-                        .foregroundStyle(AppColor.textSecondary)
-                }
+                .padding(.horizontal, 24)
+                .padding(.top, 4)
+                .padding(.bottom, 32)
             }
         }
+        .background(AppColor.background)
         .onAppear { isEmailFocused = true }
+    }
+
+    private var iconBadge: some View {
+        RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .fill(AppColor.accentSoft)
+            .frame(width: 64, height: 64)
+            .overlay {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 26, weight: .regular))
+                    .foregroundStyle(AppColor.accent)
+            }
     }
 
     private var form: some View {
         VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Reset your password")
-                    .font(AppFont.heading(24))
+            iconBadge
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Forgot password?")
+                    .font(AppFont.heading(27))
                     .foregroundStyle(AppColor.textPrimary)
-                Text("We'll email you a link to set a new password.")
-                    .font(AppFont.body(14.5))
+                Text("No worries — enter the email on your account and we'll send you a reset link.")
+                    .font(AppFont.body(14))
                     .foregroundStyle(AppColor.textSecondary)
             }
 
@@ -55,7 +73,7 @@ struct ForgotPasswordView: View {
                     .font(AppFont.heading(12, weight: .semibold))
                     .foregroundStyle(AppColor.textSecondary)
                     .kerning(0.5)
-                TextField("you@example.com", text: $viewModel.email)
+                TextField("", text: $viewModel.email, prompt: Text("you@example.com").foregroundStyle(AppColor.textTertiary))
                     .keyboardType(.emailAddress)
                     .textContentType(.emailAddress)
                     .textInputAutocapitalization(.never)
@@ -80,14 +98,22 @@ struct ForgotPasswordView: View {
                 isEmailFocused = false
                 viewModel.submit()
             }
+
+            HStack(spacing: 4) {
+                Text("Remembered it?")
+                    .font(AppFont.body(13))
+                    .foregroundStyle(AppColor.textSecondary)
+                Button("Sign in") { dismiss() }
+                    .font(AppFont.heading(13))
+                    .foregroundStyle(AppColor.accent)
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
         }
     }
 
     private var confirmation: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Image(systemName: "envelope.badge.fill")
-                .font(.system(size: 32))
-                .foregroundStyle(AppColor.accent)
+            iconBadge
             Text("Check your email")
                 .font(AppFont.heading(24))
                 .foregroundStyle(AppColor.textPrimary)

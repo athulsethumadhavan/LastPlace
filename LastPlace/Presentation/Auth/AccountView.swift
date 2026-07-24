@@ -3,9 +3,7 @@
 //  LastPlace
 //
 //  Sign-out and account-deletion (App Store Review Guideline 5.1.1(v)).
-//  Not wired into any coordinator/navigation yet -- same "built, not gated"
-//  status as AuthView. Once the app has a real launch-time auth gate
-//  (Phase 2+), this is the screen a Settings row should push to.
+//  Reached via Settings' "Account" row (`SettingsRoute.account`).
 //
 
 import SwiftUI

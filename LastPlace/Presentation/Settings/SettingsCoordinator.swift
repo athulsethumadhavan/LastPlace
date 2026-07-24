@@ -21,6 +21,13 @@ final class SettingsCoordinator {
     @ObservationIgnored
     var onAllDataDeleted: (() -> Void)?
 
+    /// Set by `MainTabView` (via `RootView`/`AppCoordinator`) so a sign-out
+    /// or account deletion in `AccountView` can send the whole app back
+    /// through the `.authRequired` gate, not just pop this tab's own
+    /// navigation stack.
+    @ObservationIgnored
+    var onSignedOut: (() -> Void)?
+
     init(container: AppDependencyContainer) {
         self.container = container
     }
@@ -84,6 +91,10 @@ final class SettingsCoordinator {
             SecurityView(viewModel: makeSecurityViewModel())
         case .dataManagement:
             DataManagementView(coordinator: self, viewModel: makeDataManagementViewModel())
+        case .account:
+            AccountView(authService: container.authService) { [weak self] in
+                self?.onSignedOut?()
+            }
         }
     }
 }

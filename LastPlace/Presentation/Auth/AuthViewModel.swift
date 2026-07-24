@@ -13,7 +13,12 @@ enum AuthMode {
 
     var toggled: AuthMode { self == .signIn ? .signUp : .signIn }
     var primaryButtonTitle: String { self == .signIn ? "Sign In" : "Create Account" }
-    var headline: String { self == .signIn ? "Welcome back" : "Create your account" }
+    var headline: String { self == .signIn ? "Welcome back" : "Create account" }
+    var subheadline: String {
+        self == .signIn
+            ? "Sign in to sync your rooms and items."
+            : "Start keeping track of everything you own."
+    }
     var toggleQuestion: String { self == .signIn ? "Don't have an account?" : "Already have an account?" }
     var toggleActionTitle: String { self == .signIn ? "Sign Up" : "Sign In" }
 }
@@ -24,10 +29,17 @@ extension AuthMode: Equatable {}
 @MainActor
 final class AuthViewModel {
     var mode: AuthMode = .signIn
+    var fullName: String = ""
     var email: String = ""
     var password: String = ""
+    var confirmPassword: String = ""
     var isLoading: Bool = false
     var errorMessage: String?
+    /// Set whenever `submit()` discovers the account needs OTP verification
+    /// -- either fresh off `signUp` (no session yet), or because a `signIn`
+    /// attempt revealed the account was never verified in the first place.
+    /// `AuthView` presents `OTPView` for as long as this is non-nil.
+    var pendingVerificationEmail: String?
 
     /// Set on each attempt to satisfy Sign in with Apple's replay-protection
     /// requirement -- generated fresh per request, never reused.
@@ -42,9 +54,19 @@ final class AuthViewModel {
     }
 
     var canSubmit: Bool {
-        !email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && password.count >= 6
-            && !isLoading
+        guard !email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, password.count >= 6, !isLoading else {
+            return false
+        }
+        guard mode == .signUp else { return true }
+        return !fullName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && confirmPassword == password
+    }
+
+    /// Only meaningful once someone's typed a `confirmPassword` -- surfaced
+    /// as inline help rather than folded into `errorMessage`, so it clears
+    /// itself the moment the two fields match instead of lingering like a
+    /// server error would.
+    var passwordMismatch: Bool {
+        mode == .signUp && !confirmPassword.isEmpty && confirmPassword != password
     }
 
     func toggleMode() {
@@ -55,24 +77,43 @@ final class AuthViewModel {
     func submit() {
         guard canSubmit else { return }
         let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedName = fullName.trimmingCharacters(in: .whitespacesAndNewlines)
         isLoading = true
         errorMessage = nil
 
         Task {
             defer { isLoading = false }
             do {
-                let user: AuthUser
                 switch mode {
                 case .signIn:
-                    user = try await authService.signIn(email: trimmedEmail, password: password)
+                    let user = try await authService.signIn(email: trimmedEmail, password: password)
+                    onAuthenticated(user)
                 case .signUp:
-                    user = try await authService.signUp(email: trimmedEmail, password: password)
+                    switch try await authService.signUp(email: trimmedEmail, password: password, fullName: trimmedName) {
+                    case .signedIn(let user):
+                        onAuthenticated(user)
+                    case .verificationRequired(let verificationEmail):
+                        pendingVerificationEmail = verificationEmail
+                    }
                 }
-                onAuthenticated(user)
+            } catch AuthError.emailNotConfirmed(let unverifiedEmail) {
+                // A fresh code beats relying on whatever was sent at signup
+                // -- that one may have already expired or gone unread.
+                // Best-effort: even if the resend itself fails, still route
+                // to the OTP screen so "Resend" is right there to retry.
+                try? await authService.resendVerificationCode(email: unverifiedEmail)
+                pendingVerificationEmail = unverifiedEmail
             } catch {
                 errorMessage = error.localizedDescription
             }
         }
+    }
+
+    /// Called once `OTPView` confirms the code -- clears the pending state
+    /// so the cover dismisses, then hands off exactly like a normal sign-in.
+    func completeVerification(_ user: AuthUser) {
+        pendingVerificationEmail = nil
+        onAuthenticated(user)
     }
 
     /// Called from `SignInWithAppleButton`'s `onRequest` closure to attach the
