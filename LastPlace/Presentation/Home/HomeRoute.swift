@@ -13,4 +13,5 @@ enum HomeRoute: Hashable {
     case updateItemLocation(itemID: UUID)
     case scanRoom(roomID: UUID)
     case shareRoom(roomID: UUID)
+    case giftItem(itemID: UUID)
 }

@@ -40,8 +40,11 @@ struct SettingsView: View {
 
                     sectionLabel("Sharing")
                     settingsCard {
-                        SettingsRow(title: "Shared Rooms", symbol: "person.2", showsDivider: false) {
+                        SettingsRow(title: "Shared Rooms", symbol: "person.2") {
                             coordinator.push(.sharedRooms)
+                        }
+                        SettingsRow(title: "Gifts", symbol: "gift", showsDivider: false) {
+                            coordinator.push(.gifts)
                         }
                     }
                     .padding(.bottom, 22)

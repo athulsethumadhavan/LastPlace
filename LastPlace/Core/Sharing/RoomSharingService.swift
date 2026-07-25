@@ -95,7 +95,12 @@ protocol RoomSharingService: Sendable {
     /// content. Bypasses `ImageStorageService`/`AsyncStoredImage` entirely,
     /// since those are local-file-cache-only and can never hold another
     /// account's images.
-    func loadSharedImageData(path: String) async throws -> Data
+    ///
+    /// `path` is the bare filename stored in `imagePath`/`coverImagePath`
+    /// columns (never a full Storage key) — `SyncEngine` only prepends the
+    /// owning user's id when it actually talks to Storage, so callers here
+    /// must pass that owner's id too, or the download 404s.
+    func loadSharedImageData(path: String, ownerID: UUID) async throws -> Data
 
     /// Live updates to the current user's incoming shares (new invites,
     /// revocations) via Supabase Realtime.

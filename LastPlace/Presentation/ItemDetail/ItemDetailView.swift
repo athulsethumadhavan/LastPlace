@@ -105,6 +105,11 @@ struct ItemDetailView: View {
             } label: {
                 Label("Update location", systemImage: "mappin.and.ellipse")
             }
+            Button {
+                navigator.pushGiftItem(itemID: detail.item.id)
+            } label: {
+                Label("Gift item", systemImage: "gift")
+            }
             Divider()
             Button(role: .destructive) {
                 isConfirmingDelete = true

@@ -89,6 +89,17 @@ final class SettingsCoordinator {
         )
     }
 
+    private func makeGiftsViewModel() -> GiftsViewModel {
+        GiftsViewModel(
+            itemGiftingService: container.itemGiftingService,
+            homeRepository: container.homeRepository,
+            roomRepository: container.roomRepository,
+            itemRepository: container.itemRepository,
+            imageStorage: container.imageStorage,
+            logger: container.logger
+        )
+    }
+
     // MARK: Destinations
 
     @ViewBuilder
@@ -112,6 +123,8 @@ final class SettingsCoordinator {
             SharedRoomsView(coordinator: self, viewModel: makeSharedRoomsViewModel())
         case .sharedRoomDetail(let roomID, let ownerID):
             SharedRoomDetailView(viewModel: makeSharedRoomDetailViewModel(roomID: roomID, ownerID: ownerID))
+        case .gifts:
+            GiftsView(viewModel: makeGiftsViewModel())
         }
     }
 }

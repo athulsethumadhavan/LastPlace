@@ -14,4 +14,5 @@ enum SettingsRoute: Hashable {
     case account
     case sharedRooms
     case sharedRoomDetail(roomID: UUID, ownerID: UUID)
+    case gifts
 }

@@ -11,6 +11,13 @@
 //  (an on-demand Storage download) without teaching the storage layer
 //  anything about cross-account access.
 //
+//  Downloaded bytes are cached to disk via `RemoteImageCache`, keyed on
+//  `path` alone (a UUID-derived filename, so a collision between two
+//  different senders' images is negligible) — a repeat view of the same
+//  shared photo doesn't re-download it every time. There's no
+//  invalidation tied to a share being revoked; see `RemoteImageCache`'s
+//  doc comment for why that's an accepted tradeoff for this pass.
+//
 
 import SwiftUI
 import UIKit
@@ -65,11 +72,19 @@ struct AsyncRemoteImage: View {
             didFail = false
             return
         }
+
+        if let cached = await RemoteImageCache.shared.data(forKey: path), let loaded = UIImage(data: cached) {
+            image = loaded
+            didFail = false
+            return
+        }
+
         do {
             let data = try await load(path)
             if let loaded = UIImage(data: data) {
                 image = loaded
                 didFail = false
+                await RemoteImageCache.shared.store(data, forKey: path)
             } else {
                 didFail = true
             }
