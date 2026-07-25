@@ -48,7 +48,9 @@ final class ScanSaveItemViewModel {
         self.logger = logger
 
         self.name = detection.label
-        self.category = ScanSaveItemViewModel.suggestCategory(for: detection.label)
+        // AI-identified detections already name a category directly; only
+        // fall back to keyword-guessing for on-device Vision detections.
+        self.category = detection.suggestedCategory ?? ScanSaveItemViewModel.suggestCategory(for: detection.label)
     }
 
     var canSave: Bool {

@@ -25,6 +25,10 @@ final class AppDependencyContainer {
 
     let imageStorage: ImageStorageService
     let objectDetection: ObjectDetectionService
+    /// Tried first during a scan capture, before falling back to
+    /// `objectDetection`'s on-device Vision pipeline — see
+    /// `ScanCoordinator.runDetection`.
+    let aiItemIdentification: AIItemIdentificationService
     let logger: AppLogger
     let onboardingPreferences: OnboardingPreferences
     let appearanceSettings: AppearanceSettingsStore
@@ -60,6 +64,7 @@ final class AppDependencyContainer {
         modelContainer: ModelContainer,
         imageStorage: ImageStorageService,
         objectDetection: ObjectDetectionService,
+        aiItemIdentification: AIItemIdentificationService,
         logger: AppLogger,
         onboardingPreferences: OnboardingPreferences,
         appearanceSettings: AppearanceSettingsStore,
@@ -80,6 +85,7 @@ final class AppDependencyContainer {
         self.modelContainer = modelContainer
         self.imageStorage = imageStorage
         self.objectDetection = objectDetection
+        self.aiItemIdentification = aiItemIdentification
         self.logger = logger
         self.onboardingPreferences = onboardingPreferences
         self.appearanceSettings = appearanceSettings
@@ -109,6 +115,7 @@ final class AppDependencyContainer {
             modelContainer: modelContainer,
             imageStorage: imageStorage,
             objectDetection: VisionObjectDetectionService(),
+            aiItemIdentification: SupabaseAIItemIdentificationService(),
             logger: OSAppLogger(),
             onboardingPreferences: UserDefaultsOnboardingPreferences(),
             appearanceSettings: AppearanceSettingsStore(),
@@ -134,6 +141,7 @@ final class AppDependencyContainer {
             modelContainer: modelContainer,
             imageStorage: MockImageStorageService(),
             objectDetection: MockObjectDetectionService(),
+            aiItemIdentification: MockAIItemIdentificationService(),
             logger: OSAppLogger(),
             onboardingPreferences: InMemoryOnboardingPreferences(completed: onboardingCompleted),
             appearanceSettings: AppearanceSettingsStore(

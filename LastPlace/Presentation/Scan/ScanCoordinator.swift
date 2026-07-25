@@ -9,6 +9,7 @@
 //  `completeSession()` on Done.
 //
 
+import CoreGraphics
 import Foundation
 import Observation
 import SwiftUI
@@ -53,6 +54,7 @@ final class ScanCoordinator {
     private let cancelScan: CancelScanSessionUseCase
     private let saveItem: SaveItemUseCase
     private let detection: ObjectDetectionService
+    private let aiIdentification: AIItemIdentificationService
     private let logger: AppLogger
 
     /// Detections below this threshold are hidden in the review UI to keep the
@@ -82,6 +84,7 @@ final class ScanCoordinator {
             imageStorage: container.imageStorage
         )
         self.detection = container.objectDetection
+        self.aiIdentification = container.aiItemIdentification
         self.logger = container.logger
     }
 
@@ -168,8 +171,30 @@ final class ScanCoordinator {
         }
     }
 
+    /// Tries the cloud AI namer first (more specific, natural-language
+    /// names than Vision's fixed ~1000-class labels), and only falls back
+    /// to the on-device Vision pipeline if that fails outright or comes
+    /// back with nothing usable — no network, a server error, or the
+    /// model genuinely not recognizing anything in the frame. This keeps
+    /// scanning working offline, just with less specific names, exactly
+    /// like before this fallback existed.
     private func runDetection(for captureID: UUID, imageData: Data) {
-        Task { [detection, minimumDetectionConfidence, logger, weak self] in
+        Task { [aiIdentification, detection, minimumDetectionConfidence, logger, weak self] in
+            if let aiResult = try? await aiIdentification.identifyItem(in: imageData),
+               !aiResult.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                guard let self else { return }
+                self.applyDetections(
+                    [DetectedObject(
+                        label: aiResult.name,
+                        confidence: aiResult.confidence,
+                        boundingBox: CGRect(x: 0, y: 0, width: 1, height: 1),
+                        suggestedCategory: aiResult.category
+                    )],
+                    to: captureID
+                )
+                return
+            }
+
             do {
                 let results = try await detection.detect(
                     in: imageData,

@@ -12,6 +12,8 @@ import SwiftUI
 struct GiftsView: View {
     @State private var viewModel: GiftsViewModel
     @State private var acceptingGift: IncomingGiftSummary?
+    @State private var decliningGiftID: UUID?
+    @State private var cancelingGiftID: UUID?
     @Environment(\.dismiss) private var dismiss
 
     init(viewModel: GiftsViewModel) {
@@ -48,6 +50,36 @@ struct GiftsView: View {
             actions: { Button("OK", role: .cancel) { viewModel.actionError = nil } },
             message: { Text(viewModel.actionError?.message ?? "") }
         )
+        .confirmationDialog(
+            "Decline this gift?",
+            isPresented: Binding(
+                get: { decliningGiftID != nil },
+                set: { if !$0 { decliningGiftID = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Decline", role: .destructive) {
+                if let id = decliningGiftID { viewModel.decline(id) }
+                decliningGiftID = nil
+            }
+        } message: {
+            Text("The sender keeps the item and can gift it to someone else instead.")
+        }
+        .confirmationDialog(
+            "Cancel this gift?",
+            isPresented: Binding(
+                get: { cancelingGiftID != nil },
+                set: { if !$0 { cancelingGiftID = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Cancel Gift", role: .destructive) {
+                if let id = cancelingGiftID { viewModel.cancel(id) }
+                cancelingGiftID = nil
+            }
+        } message: {
+            Text("The recipient will no longer be able to accept it.")
+        }
     }
 
     @ViewBuilder
@@ -122,7 +154,7 @@ struct GiftsView: View {
 
             HStack(spacing: 10) {
                 Button {
-                    viewModel.decline(summary.gift.id)
+                    decliningGiftID = summary.gift.id
                 } label: {
                     Text("Decline")
                         .font(AppFont.body(13, weight: .semibold))
@@ -187,7 +219,7 @@ struct GiftsView: View {
 
             if summary.gift.status == .pending {
                 Button {
-                    viewModel.cancel(summary.gift.id)
+                    cancelingGiftID = summary.gift.id
                 } label: {
                     if viewModel.mutatingGiftID == summary.gift.id {
                         ProgressView().controlSize(.small)

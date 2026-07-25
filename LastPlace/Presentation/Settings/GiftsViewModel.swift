@@ -13,6 +13,17 @@
 import Foundation
 import Observation
 
+/// `deinit` on an `@MainActor` class is always nonisolated, so it can't
+/// touch a normal MainActor-isolated `var` directly -- not even a
+/// `Sendable` one, since the *property storage itself* is what's isolated,
+/// not just the value inside it. Boxing the task in its own small
+/// `@unchecked Sendable` reference type sidesteps that -- see
+/// `AccountViewModel`'s identical use of this pattern.
+private final class TaskBox: @unchecked Sendable {
+    var task: Task<Void, Never>?
+    func cancel() { task?.cancel() }
+}
+
 struct IncomingGiftSummary: Identifiable, Sendable {
     let gift: ItemGift
     let senderProfile: SharingProfile?
@@ -47,6 +58,13 @@ final class GiftsViewModel {
     private let itemRepository: ItemRepository
     private let imageStorage: ImageStorageService
     private let logger: AppLogger
+    /// Tells `SettingsCoordinator` a gift was accepted, so it can notify
+    /// Home to reload -- without this, the item this just wrote to local
+    /// storage (see `accept(_:intoRoomID:)`) wouldn't show up on the Home
+    /// tab until the next unrelated full refresh. Same rationale as
+    /// `SettingsCoordinator.onAllDataDeleted`.
+    private let onAccepted: @MainActor () -> Void
+    private let observationTaskBox = TaskBox()
 
     init(
         itemGiftingService: ItemGiftingService,
@@ -54,7 +72,8 @@ final class GiftsViewModel {
         roomRepository: RoomRepository,
         itemRepository: ItemRepository,
         imageStorage: ImageStorageService,
-        logger: AppLogger
+        logger: AppLogger,
+        onAccepted: @escaping @MainActor () -> Void
     ) {
         self.itemGiftingService = itemGiftingService
         self.homeRepository = homeRepository
@@ -62,6 +81,29 @@ final class GiftsViewModel {
         self.itemRepository = itemRepository
         self.imageStorage = imageStorage
         self.logger = logger
+        self.onAccepted = onAccepted
+
+        // Live updates for incoming gifts only -- there's no equivalent
+        // stream for outgoing gifts, so this only ever touches the
+        // `incoming` half of `state` via `applyIncoming`, leaving whatever
+        // `outgoing` was last set by `refresh()` untouched. Captures
+        // `itemGiftingService` by value (not through `self`) so this task
+        // never holds a strong reference back to this view model --
+        // otherwise it would stay alive for as long as the stream keeps
+        // yielding, and `deinit` (which is what's supposed to cancel it)
+        // would never run.
+        observationTaskBox.task = Task { [weak self, itemGiftingService] in
+            for await gifts in itemGiftingService.observeIncomingGifts() {
+                guard !Task.isCancelled else { return }
+                guard let self else { return }
+                let summaries = await self.summarize(gifts)
+                self.applyIncoming(summaries)
+            }
+        }
+    }
+
+    deinit {
+        observationTaskBox.cancel()
     }
 
     var pendingIncoming: [IncomingGiftSummary] {
@@ -109,6 +151,7 @@ final class GiftsViewModel {
                 }
                 _ = try await itemRepository.create(item)
                 await refresh()
+                onAccepted()
             } catch {
                 logger.error("Accepting gift failed", error: error, category: "gifting")
                 actionError = UserFacingError.from(error)
@@ -163,6 +206,17 @@ final class GiftsViewModel {
             logger.error("Loading gifts failed", error: error, category: "gifting")
             state = .failed(UserFacingError.from(error))
         }
+    }
+
+    /// Applied by the live `observeIncomingGifts()` stream in `init` --
+    /// updates only the `incoming` half of `state`, preserving whatever
+    /// `outgoing` was last set by `refresh()`.
+    private func applyIncoming(_ incoming: [IncomingGiftSummary]) {
+        let outgoing = state.value?.outgoing ?? []
+        state = .loaded(GiftsContent(
+            incoming: incoming.sorted { $0.gift.createdAt > $1.gift.createdAt },
+            outgoing: outgoing
+        ))
     }
 
     private func summarize(_ gifts: [ItemGift]) async -> [IncomingGiftSummary] {

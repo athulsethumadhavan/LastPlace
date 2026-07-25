@@ -30,6 +30,8 @@ final class StoredItemEntity {
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
     var isImportant: Bool = false
+    /// Mirrors `items.origin_shared_by` in Postgres -- see `StoredItem.originSharedBy`.
+    var originSharedBy: UUID?
     /// See `SyncStatus` on `HomeEntity`.
     var syncStatusRaw: String = SyncStatus.pendingUpsert.rawValue
 
@@ -58,6 +60,7 @@ final class StoredItemEntity {
         createdAt: Date,
         updatedAt: Date,
         isImportant: Bool,
+        originSharedBy: UUID? = nil,
         syncStatusRaw: String = SyncStatus.pendingUpsert.rawValue
     ) {
         self.id = id
@@ -71,6 +74,7 @@ final class StoredItemEntity {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.isImportant = isImportant
+        self.originSharedBy = originSharedBy
         self.syncStatusRaw = syncStatusRaw
     }
 }

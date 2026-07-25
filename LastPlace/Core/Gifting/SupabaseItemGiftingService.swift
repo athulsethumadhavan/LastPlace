@@ -43,6 +43,14 @@ final class SupabaseItemGiftingService: ItemGiftingService {
             if message.localizedCaseInsensitiveContains("not owned by caller") {
                 throw ItemGiftingError.notOwner
             }
+            // "already has a pending gift" is the friendly message raised
+            // explicitly by `gift_item`; "duplicate key" / "item_gifts_one_pending_per_item"
+            // is what a rare concurrent-request race would surface instead,
+            // caught directly at the unique index rather than the earlier check.
+            if message.localizedCaseInsensitiveContains("already has a pending gift")
+                || message.localizedCaseInsensitiveContains("item_gifts_one_pending_per_item") {
+                throw ItemGiftingError.alreadyPendingGift
+            }
             throw ItemGiftingError.sendFailed(underlying: message)
         }
     }
@@ -104,6 +112,18 @@ final class SupabaseItemGiftingService: ItemGiftingService {
         }
     }
 
+    /// Resolves the gift and creates the independent item *before* touching
+    /// Storage at all, then treats the photo copy as a best-effort step on
+    /// top of an item that already exists validly either way. This ordering
+    /// matters: the old version uploaded the photo first and only then
+    /// called `accept_gift`, so a failure in that RPC (a race with a
+    /// concurrent accept/decline, a dropped connection, anything) left a
+    /// fully-uploaded photo in the recipient's Storage folder with nothing
+    /// in Postgres ever referencing it -- permanently orphaned, since
+    /// nothing else would ever look for it. Doing the RPC first means the
+    /// only failure mode left is "item exists, photo copy didn't happen",
+    /// which is the same, already-handled state as any item saved without a
+    /// photo -- not a bug.
     func acceptGift(_ giftID: UUID, intoRoomID roomID: UUID) async throws -> (item: StoredItem, imageData: Data?) {
         guard let recipientID = await currentUserID() else { throw ItemGiftingError.notAuthenticated }
         do {
@@ -115,36 +135,62 @@ final class SupabaseItemGiftingService: ItemGiftingService {
                 .execute()
                 .value
 
-            var newImagePath: String?
-            var downloadedData: Data?
-            if let sourcePath = gift.sourceImagePath {
-                // Storage holds bare filenames under a "{user_id}/" folder
-                // (see SyncEngine.pushPendingImages/pullMissingImages) --
-                // download from the sender's folder, then re-upload under
-                // this account's own folder so the gift becomes a fully
-                // independent photo copy, not a cross-account reference
-                // that would break if the sender later deletes the item.
-                let data = try await client.storage.from("item-images")
-                    .download(path: "\(gift.fromUserID)/\(sourcePath)")
-                let filename = "gift-\(UUID().uuidString).jpg"
-                try await client.storage.from("item-images").upload(
-                    "\(recipientID)/\(filename)",
-                    data: data,
-                    options: FileOptions(contentType: "image/jpeg", upsert: true)
-                )
-                newImagePath = filename
-                downloadedData = data
-            }
-
+            let noImagePath: String? = nil
             let itemRow: GiftedItemRow = try await client
                 .rpc("accept_gift", params: [
                     "p_gift_id": giftID.uuidString,
                     "p_room_id": roomID.uuidString,
-                    "p_new_image_path": newImagePath
+                    "p_new_image_path": noImagePath
                 ])
                 .execute()
                 .value
-            return (StoredItem(itemRow), downloadedData)
+            var item = StoredItem(itemRow)
+
+            guard let sourcePath = gift.sourceImagePath else {
+                return (item, nil)
+            }
+
+            // Storage holds bare filenames under a "{user_id}/" folder (see
+            // SyncEngine.pushPendingImages/pullMissingImages) -- download
+            // from the sender's folder, then re-upload under this
+            // account's own folder so the gift becomes a fully independent
+            // photo copy, not a cross-account reference that would break if
+            // the sender later deletes the item. The gift itself is
+            // already resolved at this point regardless of what happens
+            // below, so none of this can fail the accept as a whole.
+            guard let data = try? await client.storage.from("item-images")
+                .download(path: "\(gift.fromUserID)/\(sourcePath)") else {
+                return (item, nil)
+            }
+            let filename = "gift-\(UUID().uuidString).jpg"
+            guard (try? await client.storage.from("item-images").upload(
+                "\(recipientID)/\(filename)",
+                data: data,
+                options: FileOptions(contentType: "image/jpeg", upsert: true)
+            )) != nil else {
+                return (item, nil)
+            }
+
+            do {
+                try await client.from("items")
+                    .update(["image_path": filename])
+                    .eq("id", value: item.id.uuidString)
+                    .execute()
+                item.imagePath = filename
+                return (item, data)
+            } catch {
+                // The upload succeeded but attaching it to the item didn't
+                // -- clean up the now-unreferenced Storage object rather
+                // than leaving it behind. VERIFY-BEFORE-TRUST: `.remove(paths:)`
+                // is the documented supabase-swift storage delete call but
+                // hasn't been exercised anywhere else in this codebase yet;
+                // confirm the signature in Xcode. Best-effort either way --
+                // if this also fails, the item is still a perfectly valid,
+                // photo-less item, not a lost gift.
+                try? await client.storage.from("item-images")
+                    .remove(paths: ["\(recipientID)/\(filename)"])
+                return (item, nil)
+            }
         } catch {
             let message = error.localizedDescription
             if message.localizedCaseInsensitiveContains("already been resolved") {
@@ -248,6 +294,7 @@ private struct GiftedItemRow: Codable, Sendable {
     let createdAt: Date
     let updatedAt: Date
     let isImportant: Bool
+    let originSharedBy: UUID?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -261,6 +308,7 @@ private struct GiftedItemRow: Codable, Sendable {
         case createdAt = "created_at"
         case updatedAt = "updated_at"
         case isImportant = "is_important"
+        case originSharedBy = "origin_shared_by"
     }
 }
 
@@ -315,7 +363,8 @@ private extension StoredItem {
             lastSeenAt: row.lastSeenAt,
             createdAt: row.createdAt,
             updatedAt: row.updatedAt,
-            isImportant: row.isImportant
+            isImportant: row.isImportant,
+            originSharedBy: row.originSharedBy
         )
     }
 }

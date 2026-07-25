@@ -12,6 +12,8 @@ import SwiftUI
 struct SharedRoomsView: View {
     let coordinator: SettingsCoordinator
     @State private var viewModel: SharedRoomsViewModel
+    @State private var decliningShareID: UUID?
+    @State private var leavingShareID: UUID?
     @Environment(\.dismiss) private var dismiss
 
     init(coordinator: SettingsCoordinator, viewModel: SharedRoomsViewModel) {
@@ -39,6 +41,36 @@ struct SharedRoomsView: View {
             actions: { Button("OK", role: .cancel) { viewModel.actionError = nil } },
             message: { Text(viewModel.actionError?.message ?? "") }
         )
+        .confirmationDialog(
+            "Decline this invite?",
+            isPresented: Binding(
+                get: { decliningShareID != nil },
+                set: { if !$0 { decliningShareID = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Decline", role: .destructive) {
+                if let id = decliningShareID { viewModel.decline(id) }
+                decliningShareID = nil
+            }
+        } message: {
+            Text("You won't see this room unless the owner shares it with you again.")
+        }
+        .confirmationDialog(
+            "Leave this shared room?",
+            isPresented: Binding(
+                get: { leavingShareID != nil },
+                set: { if !$0 { leavingShareID = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Leave", role: .destructive) {
+                if let id = leavingShareID { viewModel.decline(id) }
+                leavingShareID = nil
+            }
+        } message: {
+            Text("You'll lose access until the owner shares it with you again.")
+        }
     }
 
     @ViewBuilder
@@ -112,7 +144,7 @@ struct SharedRoomsView: View {
 
             HStack(spacing: 10) {
                 Button {
-                    viewModel.decline(summary.share.id)
+                    decliningShareID = summary.share.id
                 } label: {
                     Text("Decline")
                         .font(AppFont.body(13, weight: .semibold))
@@ -156,7 +188,7 @@ struct SharedRoomsView: View {
                         }
                         .contextMenu {
                             Button(role: .destructive) {
-                                viewModel.decline(summary.share.id)
+                                leavingShareID = summary.share.id
                             } label: {
                                 Label("Leave shared room", systemImage: "person.crop.circle.badge.minus")
                             }

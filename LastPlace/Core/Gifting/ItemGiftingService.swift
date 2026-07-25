@@ -45,6 +45,12 @@ enum ItemGiftingError: LocalizedError, Sendable {
     case noAccountFound
     case alreadyResolved
     case roomNotOwned
+    /// The item already has another gift out that's still `pending` --
+    /// `gift_item` enforces this with an explicit check plus a partial
+    /// unique index (`item_gifts_one_pending_per_item`) as the race-proof
+    /// backstop, so this can surface either as the friendly raised
+    /// exception or, rarely, as the underlying constraint violation.
+    case alreadyPendingGift
     case sendFailed(underlying: String)
     case fetchFailed(underlying: String)
     case acceptFailed(underlying: String)
@@ -61,6 +67,8 @@ enum ItemGiftingError: LocalizedError, Sendable {
             return "This gift has already been accepted or declined."
         case .roomNotOwned:
             return "Choose a room from your own inventory."
+        case .alreadyPendingGift:
+            return "This item already has a pending gift. Cancel it before sending another."
         case .sendFailed(let underlying), .fetchFailed(let underlying), .acceptFailed(let underlying):
             return underlying
         }

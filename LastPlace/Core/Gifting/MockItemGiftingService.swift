@@ -64,7 +64,8 @@ final class MockItemGiftingService: ItemGiftingService, @unchecked Sendable {
             name: gift.itemName,
             category: gift.itemCategory,
             notes: gift.itemNotes,
-            locationDescription: gift.itemLocationDescription
+            locationDescription: gift.itemLocationDescription,
+            originSharedBy: gift.fromUserID
         )
         incoming[index].status = .accepted
         incoming[index].resolvedAt = Date()
