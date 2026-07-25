@@ -52,6 +52,6 @@ final class SharedRoomDetailViewModel {
     /// Storage download, since `AsyncStoredImage`'s local file cache can
     /// never hold another account's images.
     func loadImageData(path: String) async throws -> Data {
-        try await roomSharingService.loadSharedImageData(path: path)
+        try await roomSharingService.loadSharedImageData(path: path, ownerID: ownerID)
     }
 }

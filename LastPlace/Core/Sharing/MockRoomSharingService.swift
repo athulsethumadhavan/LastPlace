@@ -63,7 +63,7 @@ final class MockRoomSharingService: RoomSharingService, @unchecked Sendable {
         return detail
     }
 
-    func loadSharedImageData(path: String) async throws -> Data {
+    func loadSharedImageData(path: String, ownerID: UUID) async throws -> Data {
         Data()
     }
 

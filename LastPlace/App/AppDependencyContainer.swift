@@ -25,6 +25,10 @@ final class AppDependencyContainer {
 
     let imageStorage: ImageStorageService
     let objectDetection: ObjectDetectionService
+    /// Tried first during a scan capture, before falling back to
+    /// `objectDetection`'s on-device Vision pipeline — see
+    /// `ScanCoordinator.runDetection`.
+    let aiItemIdentification: AIItemIdentificationService
     let logger: AppLogger
     let onboardingPreferences: OnboardingPreferences
     let appearanceSettings: AppearanceSettingsStore
@@ -36,6 +40,12 @@ final class AppDependencyContainer {
     /// data belongs to another account and is never mirrored into this
     /// device's local SwiftData store.
     let roomSharingService: RoomSharingService
+    /// Phase 5 — Item Gifting. Same rationale as `roomSharingService`:
+    /// direct Supabase reads/writes, no SwiftData mirroring for the gift
+    /// rows themselves (the item an accepted gift produces is a normal
+    /// owned item afterward and picked up by the recipient's own
+    /// `SyncEngine` on their next sync, same as anything else they own).
+    let itemGiftingService: ItemGiftingService
     /// Push/pull against the Supabase tables from Phase 2. Constructed here
     /// rather than taking it through `init` like everything else, since it
     /// only ever needs the same `modelContainer` this container already has
@@ -54,6 +64,7 @@ final class AppDependencyContainer {
         modelContainer: ModelContainer,
         imageStorage: ImageStorageService,
         objectDetection: ObjectDetectionService,
+        aiItemIdentification: AIItemIdentificationService,
         logger: AppLogger,
         onboardingPreferences: OnboardingPreferences,
         appearanceSettings: AppearanceSettingsStore,
@@ -61,6 +72,7 @@ final class AppDependencyContainer {
         biometricAuthenticator: BiometricAuthenticator,
         authService: AuthService,
         roomSharingService: RoomSharingService,
+        itemGiftingService: ItemGiftingService,
         homeRepository: HomeRepository,
         roomRepository: RoomRepository,
         itemRepository: ItemRepository,
@@ -73,6 +85,7 @@ final class AppDependencyContainer {
         self.modelContainer = modelContainer
         self.imageStorage = imageStorage
         self.objectDetection = objectDetection
+        self.aiItemIdentification = aiItemIdentification
         self.logger = logger
         self.onboardingPreferences = onboardingPreferences
         self.appearanceSettings = appearanceSettings
@@ -80,6 +93,7 @@ final class AppDependencyContainer {
         self.biometricAuthenticator = biometricAuthenticator
         self.authService = authService
         self.roomSharingService = roomSharingService
+        self.itemGiftingService = itemGiftingService
         self.syncEngine = SyncEngine(modelContainer: modelContainer)
         self.homeRepository = homeRepository
         self.roomRepository = roomRepository
@@ -101,6 +115,7 @@ final class AppDependencyContainer {
             modelContainer: modelContainer,
             imageStorage: imageStorage,
             objectDetection: VisionObjectDetectionService(),
+            aiItemIdentification: SupabaseAIItemIdentificationService(),
             logger: OSAppLogger(),
             onboardingPreferences: UserDefaultsOnboardingPreferences(),
             appearanceSettings: AppearanceSettingsStore(),
@@ -108,6 +123,7 @@ final class AppDependencyContainer {
             biometricAuthenticator: LAContextBiometricAuthenticator(),
             authService: SupabaseAuthService(),
             roomSharingService: SupabaseRoomSharingService(),
+            itemGiftingService: SupabaseItemGiftingService(),
             homeRepository: SwiftDataHomeRepository(modelContainer: modelContainer),
             roomRepository: SwiftDataRoomRepository(modelContainer: modelContainer),
             itemRepository: SwiftDataItemRepository(modelContainer: modelContainer),
@@ -125,6 +141,7 @@ final class AppDependencyContainer {
             modelContainer: modelContainer,
             imageStorage: MockImageStorageService(),
             objectDetection: MockObjectDetectionService(),
+            aiItemIdentification: MockAIItemIdentificationService(),
             logger: OSAppLogger(),
             onboardingPreferences: InMemoryOnboardingPreferences(completed: onboardingCompleted),
             appearanceSettings: AppearanceSettingsStore(
@@ -136,6 +153,7 @@ final class AppDependencyContainer {
             biometricAuthenticator: MockBiometricAuthenticator(),
             authService: MockAuthService(),
             roomSharingService: MockRoomSharingService(),
+            itemGiftingService: MockItemGiftingService(),
             homeRepository: SwiftDataHomeRepository(modelContainer: modelContainer),
             roomRepository: SwiftDataRoomRepository(modelContainer: modelContainer),
             itemRepository: SwiftDataItemRepository(modelContainer: modelContainer),

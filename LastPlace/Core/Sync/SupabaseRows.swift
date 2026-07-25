@@ -66,6 +66,10 @@ struct ItemRow: Codable, Sendable {
     let createdAt: Date
     let updatedAt: Date
     let isImportant: Bool
+    /// Set by the `accept_gift` Postgres function on an item created from
+    /// an accepted gift; `nil` for every ordinarily-created item. See
+    /// `StoredItem.originSharedBy`.
+    let originSharedBy: UUID?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -80,6 +84,7 @@ struct ItemRow: Codable, Sendable {
         case createdAt = "created_at"
         case updatedAt = "updated_at"
         case isImportant = "is_important"
+        case originSharedBy = "origin_shared_by"
     }
 }
 

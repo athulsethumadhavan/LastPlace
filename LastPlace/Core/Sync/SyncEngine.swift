@@ -159,7 +159,8 @@ actor SyncEngine {
                     id: entity.id, userID: userID, roomID: entity.roomID, name: entity.name,
                     category: entity.categoryRaw, notes: entity.notes, imagePath: entity.imagePath,
                     locationDescription: entity.locationDescription, lastSeenAt: entity.lastSeenAt,
-                    createdAt: entity.createdAt, updatedAt: entity.updatedAt, isImportant: entity.isImportant
+                    createdAt: entity.createdAt, updatedAt: entity.updatedAt, isImportant: entity.isImportant,
+                    originSharedBy: entity.originSharedBy
                 )
             }
             try await client.from("items").upsert(rows).execute()
@@ -367,13 +368,15 @@ actor SyncEngine {
                 local.lastSeenAt = row.lastSeenAt
                 local.updatedAt = row.updatedAt
                 local.isImportant = row.isImportant
+                // Not `originSharedBy` -- same "set once at creation, never
+                // reassigned" rule as `StoredItemMapper.apply`.
                 local.room = roomsByID[row.roomID]
             } else {
                 let entity = StoredItemEntity(
                     id: row.id, roomID: row.roomID, name: row.name, categoryRaw: row.category,
                     notes: row.notes, imagePath: row.imagePath, locationDescription: row.locationDescription,
                     lastSeenAt: row.lastSeenAt, createdAt: row.createdAt, updatedAt: row.updatedAt,
-                    isImportant: row.isImportant, syncStatusRaw: syncedStatus
+                    isImportant: row.isImportant, originSharedBy: row.originSharedBy, syncStatusRaw: syncedStatus
                 )
                 entity.room = roomsByID[row.roomID]
                 modelContext.insert(entity)

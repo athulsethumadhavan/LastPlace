@@ -16,16 +16,24 @@ struct DetectedObject: Identifiable, Hashable, Sendable {
     var label: String
     var confidence: Double
     var boundingBox: CGRect
+    /// Set only when the label came from `AIItemIdentificationService`,
+    /// which names a category directly instead of leaving
+    /// `ScanSaveItemViewModel` to guess one via keyword-matching the label
+    /// (still the fallback for on-device Vision detections, where this is
+    /// nil).
+    var suggestedCategory: ItemCategory?
 
     init(
         id: UUID = UUID(),
         label: String,
         confidence: Double,
-        boundingBox: CGRect
+        boundingBox: CGRect,
+        suggestedCategory: ItemCategory? = nil
     ) {
         self.id = id
         self.label = label
         self.confidence = confidence
         self.boundingBox = boundingBox
+        self.suggestedCategory = suggestedCategory
     }
 }

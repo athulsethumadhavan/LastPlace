@@ -112,6 +112,17 @@ struct MainTabView: View {
                 Task { await searchCoordinator.searchViewModel.refresh() }
             }
         }
+        // Accepting a gift in Settings writes the new item straight to
+        // local storage (see `GiftsViewModel.accept`), but neither Home nor
+        // Search has a way to know that happened on its own -- same
+        // cross-tab-notification rationale as `onAllDataDeleted` above,
+        // just for one item instead of everything.
+        settingsCoordinator.onGiftAccepted = { [weak homeCoordinator, weak searchCoordinator] in
+            homeCoordinator?.refreshHome()
+            if let searchCoordinator {
+                Task { await searchCoordinator.searchViewModel.refresh() }
+            }
+        }
         // Signing out (or deleting the account) in Settings needs to send
         // the whole app back through `AppCoordinator`'s `.authRequired`
         // gate, not just pop the Settings navigation stack -- this tab

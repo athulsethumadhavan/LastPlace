@@ -14,6 +14,9 @@ protocol ItemDetailNavigator: AnyObject {
     /// Pushes the Update Location screen for the given item.
     func pushUpdateItemLocation(itemID: UUID)
 
+    /// Pushes the Gift Item screen for the given item.
+    func pushGiftItem(itemID: UUID)
+
     /// Pops the topmost screen of the host's NavigationPath.
     func popTop()
 

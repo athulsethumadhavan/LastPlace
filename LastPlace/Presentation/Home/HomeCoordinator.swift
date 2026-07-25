@@ -163,6 +163,19 @@ final class HomeCoordinator {
         )
     }
 
+    func makeGiftItemViewModel(itemID: UUID) -> GiftItemViewModel {
+        GiftItemViewModel(
+            itemID: itemID,
+            fetchDetail: DefaultFetchItemDetailUseCase(
+                itemRepository: container.itemRepository,
+                roomRepository: container.roomRepository,
+                snapshotRepository: container.snapshotRepository
+            ),
+            itemGiftingService: container.itemGiftingService,
+            logger: container.logger
+        )
+    }
+
     func makeShareRoomViewModel(roomID: UUID) -> ShareRoomViewModel {
         ShareRoomViewModel(
             roomID: roomID,
@@ -228,6 +241,9 @@ final class HomeCoordinator {
 
         case .shareRoom(let roomID):
             ShareRoomView(viewModel: makeShareRoomViewModel(roomID: roomID))
+
+        case .giftItem(let itemID):
+            GiftItemView(viewModel: makeGiftItemViewModel(itemID: itemID))
         }
     }
 }
@@ -235,6 +251,10 @@ final class HomeCoordinator {
 extension HomeCoordinator: ItemDetailNavigator {
     func pushUpdateItemLocation(itemID: UUID) {
         push(.updateItemLocation(itemID: itemID))
+    }
+
+    func pushGiftItem(itemID: UUID) {
+        push(.giftItem(itemID: itemID))
     }
 
     func popTop() { popLast() }

@@ -18,7 +18,8 @@ enum StoredItemMapper {
             lastSeenAt: entity.lastSeenAt,
             createdAt: entity.createdAt,
             updatedAt: entity.updatedAt,
-            isImportant: entity.isImportant
+            isImportant: entity.isImportant,
+            originSharedBy: entity.originSharedBy
         )
     }
 
@@ -34,10 +35,14 @@ enum StoredItemMapper {
             lastSeenAt: item.lastSeenAt,
             createdAt: item.createdAt,
             updatedAt: item.updatedAt,
-            isImportant: item.isImportant
+            isImportant: item.isImportant,
+            originSharedBy: item.originSharedBy
         )
     }
 
+    /// Deliberately does not touch `originSharedBy` -- it's set once, at
+    /// creation (either by a normal save or by an accepted gift), and never
+    /// reassigned by a later edit. `create`/`toEntity` are the only writers.
     static func apply(_ item: StoredItem, to entity: StoredItemEntity) {
         entity.roomID = item.roomID
         entity.name = item.name

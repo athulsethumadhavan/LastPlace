@@ -21,6 +21,15 @@ final class SettingsCoordinator {
     @ObservationIgnored
     var onAllDataDeleted: (() -> Void)?
 
+    /// Set by `MainTabView`, so accepting a gift here (Settings > Gifts)
+    /// tells Home to reload -- otherwise the newly-created item wouldn't
+    /// appear there until the next full refresh/relaunch, even though it
+    /// was written to local storage immediately (see
+    /// `GiftsViewModel.accept`'s doc comment). Same rationale and shape as
+    /// `onAllDataDeleted`.
+    @ObservationIgnored
+    var onGiftAccepted: (() -> Void)?
+
     /// Set by `MainTabView` (via `RootView`/`AppCoordinator`) so a sign-out
     /// or account deletion in `AccountView` can send the whole app back
     /// through the `.authRequired` gate, not just pop this tab's own
@@ -37,6 +46,10 @@ final class SettingsCoordinator {
 
     func notifyAllDataDeleted() {
         onAllDataDeleted?()
+    }
+
+    func notifyGiftAccepted() {
+        onGiftAccepted?()
     }
 
     // MARK: View-model factories
@@ -89,6 +102,18 @@ final class SettingsCoordinator {
         )
     }
 
+    private func makeGiftsViewModel() -> GiftsViewModel {
+        GiftsViewModel(
+            itemGiftingService: container.itemGiftingService,
+            homeRepository: container.homeRepository,
+            roomRepository: container.roomRepository,
+            itemRepository: container.itemRepository,
+            imageStorage: container.imageStorage,
+            logger: container.logger,
+            onAccepted: { [weak self] in self?.notifyGiftAccepted() }
+        )
+    }
+
     // MARK: Destinations
 
     @ViewBuilder
@@ -112,6 +137,8 @@ final class SettingsCoordinator {
             SharedRoomsView(coordinator: self, viewModel: makeSharedRoomsViewModel())
         case .sharedRoomDetail(let roomID, let ownerID):
             SharedRoomDetailView(viewModel: makeSharedRoomDetailViewModel(roomID: roomID, ownerID: ownerID))
+        case .gifts:
+            GiftsView(viewModel: makeGiftsViewModel())
         }
     }
 }

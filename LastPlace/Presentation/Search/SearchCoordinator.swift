@@ -77,6 +77,19 @@ final class SearchCoordinator {
         return viewModel
     }
 
+    func makeGiftItemViewModel(itemID: UUID) -> GiftItemViewModel {
+        GiftItemViewModel(
+            itemID: itemID,
+            fetchDetail: DefaultFetchItemDetailUseCase(
+                itemRepository: container.itemRepository,
+                roomRepository: container.roomRepository,
+                snapshotRepository: container.snapshotRepository
+            ),
+            itemGiftingService: container.itemGiftingService,
+            logger: container.logger
+        )
+    }
+
     func makeUpdateItemLocationViewModel(itemID: UUID) -> UpdateItemLocationViewModel {
         UpdateItemLocationViewModel(
             itemID: itemID,
@@ -107,6 +120,8 @@ final class SearchCoordinator {
                 navigator: self,
                 viewModel: makeUpdateItemLocationViewModel(itemID: itemID)
             )
+        case .giftItem(let itemID):
+            GiftItemView(viewModel: makeGiftItemViewModel(itemID: itemID))
         }
     }
 }
@@ -114,6 +129,10 @@ final class SearchCoordinator {
 extension SearchCoordinator: ItemDetailNavigator {
     func pushUpdateItemLocation(itemID: UUID) {
         push(.updateItemLocation(itemID: itemID))
+    }
+
+    func pushGiftItem(itemID: UUID) {
+        push(.giftItem(itemID: itemID))
     }
 
     func popTop() { popLast() }

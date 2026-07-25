@@ -17,26 +17,33 @@ struct ScanReviewView: View {
     @State private var isConfirmingDiscard = false
 
     var body: some View {
-        Group {
-            if coordinator.captures.isEmpty {
-                EmptyStateView(
-                    title: "Nothing to review",
-                    message: "Capture at least one photo before reviewing.",
-                    symbolName: "camera",
-                    primaryAction: EmptyStateAction(title: "Back to camera") {
-                        coordinator.goToCapture()
-                    }
-                )
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 16) {
-                        ForEach(coordinator.captures) { capture in
-                            captureCard(capture)
+        VStack(spacing: 0) {
+            Group {
+                if coordinator.captures.isEmpty {
+                    EmptyStateView(
+                        title: "Nothing to review",
+                        message: "Capture at least one photo before reviewing.",
+                        symbolName: "camera",
+                        primaryAction: EmptyStateAction(title: "Back to camera") {
+                            coordinator.goToCapture()
                         }
+                    )
+                } else {
+                    ScrollView {
+                        LazyVStack(spacing: 16) {
+                            ForEach(coordinator.captures) { capture in
+                                captureCard(capture)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 16)
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 16)
                 }
+            }
+            .frame(maxHeight: .infinity)
+
+            if !coordinator.captures.isEmpty {
+                actionBar
             }
         }
         .navigationTitle("Review scan")
@@ -68,33 +75,48 @@ struct ScanReviewView: View {
             }
             .accessibilityLabel("Back to camera")
         }
-        ToolbarItem(placement: .topBarTrailing) {
-            Menu {
-                Button {
-                    Task {
-                        if await coordinator.completeSession() {
-                            homeCoordinator.popLast()
-                            homeCoordinator.refreshRoomDetail()
-                            homeCoordinator.refreshHome()
-                        }
+    }
+
+    /// Discard and Save used to be buried in a trailing ellipsis `Menu` —
+    /// moved into a persistent bottom bar instead so both actions are
+    /// visible directly on the page without an extra tap to reveal them.
+    private var actionBar: some View {
+        HStack(spacing: 12) {
+            Button(role: .destructive) {
+                isConfirmingDiscard = true
+            } label: {
+                Label("Discard", systemImage: "trash")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+            .disabled(coordinator.isCompleting)
+
+            Button {
+                Task {
+                    if await coordinator.completeSession() {
+                        homeCoordinator.popLast()
+                        homeCoordinator.refreshRoomDetail()
+                        homeCoordinator.refreshHome()
                     }
-                } label: {
-                    Label("Finish scan", systemImage: "checkmark")
-                }
-                Button(role: .destructive) {
-                    isConfirmingDiscard = true
-                } label: {
-                    Label("Discard scan", systemImage: "trash")
                 }
             } label: {
                 if coordinator.isCompleting {
                     ProgressView()
+                        .frame(maxWidth: .infinity)
                 } else {
-                    Image(systemName: "ellipsis.circle")
+                    Label("Save", systemImage: "checkmark")
+                        .frame(maxWidth: .infinity)
                 }
             }
-            .accessibilityLabel("Scan actions")
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .disabled(coordinator.isCompleting)
         }
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
+        .background(.bar)
     }
 
     private func captureCard(_ capture: ScanCoordinator.ScanCapture) -> some View {
