@@ -28,7 +28,11 @@ final class ScanSaveItemViewModel {
     private let roomID: UUID
     private let capturedAt: Date
     private let saveItemUseCase: SaveItemUseCase
+    private let analytics: AnalyticsService
     private let logger: AppLogger
+    /// Which naming path produced the pre-filled name, captured at init so
+    /// `save()` can report it -- see the `.itemNamed` event there.
+    private let namingOutcome: AnalyticsEvent.NamingOutcome
 
     init(
         roomID: UUID,
@@ -37,6 +41,7 @@ final class ScanSaveItemViewModel {
         detection: DetectedObject,
         confidence: Double,
         saveItem: SaveItemUseCase,
+        analytics: AnalyticsService,
         logger: AppLogger
     ) {
         self.roomID = roomID
@@ -45,7 +50,12 @@ final class ScanSaveItemViewModel {
         self.detectionLabel = detection.label
         self.confidence = confidence
         self.saveItemUseCase = saveItem
+        self.analytics = analytics
         self.logger = logger
+        // `suggestedCategory` is set only by `AIItemIdentificationService`
+        // (see `DetectedObject`), so it doubles as the marker for which
+        // naming path produced this detection.
+        self.namingOutcome = detection.suggestedCategory != nil ? .ai : .visionFallback
 
         self.name = detection.label
         // AI-identified detections already name a category directly; only
@@ -77,7 +87,21 @@ final class ScanSaveItemViewModel {
         )
 
         do {
-            return try await saveItemUseCase.execute(input)
+            let saved = try await saveItemUseCase.execute(input)
+            analytics.log(.itemSaved(
+                source: .scan,
+                category: category,
+                hasPhoto: imageData != nil
+            ))
+            // Logged on save rather than on detection so it reflects names
+            // the person actually kept -- a suggestion they rejected and
+            // retyped shouldn't count as the AI having named the item.
+            // `.none` covers exactly that case: the suggested label was
+            // edited away before saving.
+            let keptSuggestion = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                .caseInsensitiveCompare(detectionLabel.trimmingCharacters(in: .whitespacesAndNewlines)) == .orderedSame
+            analytics.log(.itemNamed(outcome: keptSuggestion ? namingOutcome : .none))
+            return saved
         } catch {
             logger.error("Scan save item failed", error: error, category: "scan")
             self.error = UserFacingError.from(error)

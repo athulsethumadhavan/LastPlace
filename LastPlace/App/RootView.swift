@@ -27,7 +27,10 @@ struct RootView: View {
                     .transition(.opacity)
 
             case .authRequired:
-                AuthView(authService: container.authService) { _ in
+                AuthView(
+                    authService: container.authService,
+                    analytics: container.analytics
+                ) { _ in
                     coordinator.completeSignIn()
                 }
                 .transition(.opacity)
@@ -37,8 +40,12 @@ struct RootView: View {
                     .transition(.opacity)
 
             case .main:
-                MainTabView(container: container, onSignedOut: { coordinator.signOut() })
-                    .transition(.opacity)
+                MainTabView(
+                    container: container,
+                    appCoordinator: coordinator,
+                    onSignedOut: { coordinator.signOut() }
+                )
+                .transition(.opacity)
 
             case .failed(let reason):
                 AppBootstrapErrorView(message: reason)
@@ -75,6 +82,12 @@ struct RootView: View {
     private func syncIfSignedIn() async {
         guard let user = await container.authService.currentUser else { return }
         try? await container.syncEngine.sync(userID: user.id, imageStorage: container.imageStorage)
+        // `sync` wipes the local store first if it belonged to a different
+        // account, so this path can replace everything the tabs are showing
+        // too -- not just the sign-in path. Firing on every sync is
+        // harmless: a foreground refresh of unchanged data is exactly what
+        // pull-to-refresh already does.
+        coordinator.onLocalDataReplaced?()
     }
 }
 

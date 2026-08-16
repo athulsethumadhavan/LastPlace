@@ -46,10 +46,16 @@ final class AuthViewModel {
     private var currentAppleNonce: String?
 
     private let authService: AuthService
+    private let analytics: AnalyticsService
     private let onAuthenticated: @MainActor (AuthUser) -> Void
 
-    init(authService: AuthService, onAuthenticated: @escaping @MainActor (AuthUser) -> Void) {
+    init(
+        authService: AuthService,
+        analytics: AnalyticsService,
+        onAuthenticated: @escaping @MainActor (AuthUser) -> Void
+    ) {
         self.authService = authService
+        self.analytics = analytics
         self.onAuthenticated = onAuthenticated
     }
 
@@ -87,10 +93,12 @@ final class AuthViewModel {
                 switch mode {
                 case .signIn:
                     let user = try await authService.signIn(email: trimmedEmail, password: password)
+                    analytics.log(.signedIn(method: .email))
                     onAuthenticated(user)
                 case .signUp:
                     switch try await authService.signUp(email: trimmedEmail, password: password, fullName: trimmedName) {
                     case .signedIn(let user):
+                        analytics.log(.signedIn(method: .email))
                         onAuthenticated(user)
                     case .verificationRequired(let verificationEmail):
                         pendingVerificationEmail = verificationEmail
@@ -132,6 +140,7 @@ final class AuthViewModel {
             defer { isLoading = false }
             do {
                 let user = try await authService.signInWithGoogle()
+                analytics.log(.signedIn(method: .google))
                 onAuthenticated(user)
             } catch {
                 errorMessage = error.localizedDescription
@@ -169,6 +178,7 @@ final class AuthViewModel {
                 defer { isLoading = false }
                 do {
                     let user = try await authService.signInWithApple(idToken: idToken, nonce: nonce)
+                    analytics.log(.signedIn(method: .apple))
                     onAuthenticated(user)
                 } catch {
                     errorMessage = error.localizedDescription

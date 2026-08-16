@@ -144,7 +144,8 @@ final class SupabaseRoomSharingService: RoomSharingService {
 
     func loadSharedImageData(path: String, ownerID: UUID) async throws -> Data {
         do {
-            return try await client.storage.from("item-images").download(path: "\(ownerID)/\(path)")
+            return try await client.storage.from("item-images")
+                .download(path: ownerID.storageKey(for: path))
         } catch {
             throw RoomSharingError.fetchFailed(underlying: error.localizedDescription)
         }

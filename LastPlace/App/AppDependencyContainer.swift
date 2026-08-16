@@ -46,12 +46,28 @@ final class AppDependencyContainer {
     /// owned item afterward and picked up by the recipient's own
     /// `SyncEngine` on their next sync, same as anything else they own).
     let itemGiftingService: ItemGiftingService
-    /// Push/pull against the Supabase tables from Phase 2. Constructed here
-    /// rather than taking it through `init` like everything else, since it
-    /// only ever needs the same `modelContainer` this container already has
-    /// -- there's no Mock variant to swap in for previews the way the other
-    /// services have, since it never runs unless something explicitly calls
-    /// `sync(userID:)`, which nothing in a preview does.
+    /// Phase 6 — Push Notifications. Registers/unregisters this device's
+    /// FCM token against the `device_tokens` table.
+    let deviceTokenService: DeviceTokenService
+    /// Phase 6 — Push Notifications. Wraps the system permission prompt +
+    /// `UIApplication.registerForRemoteNotifications()` so `AppCoordinator`
+    /// doesn't import UIKit/UserNotifications directly.
+    let pushNotificationPermissionService: PushNotificationPermissionService
+    /// First-party product analytics. See `AnalyticsService`'s doc comment
+    /// for the rule about never passing user content as a parameter.
+    let analytics: AnalyticsService
+    /// Push/pull against the Supabase tables from Phase 2. Still constructed
+    /// here rather than taken through `init` like everything else, since it
+    /// only ever needs the same `modelContainer` this container already has.
+    ///
+    /// It used to be the one service with no Mock counterpart, on the
+    /// grounds that nothing outside a real session ever called it. That's no
+    /// longer true: `GiftsViewModel`/`GiftItemViewModel`/`ShareRoomViewModel`
+    /// each sync before calling a server-side RPC, so they depend on the
+    /// narrower `PendingChangesSyncing` protocol (which this satisfies) and
+    /// previews inject `MockPendingChangesSyncing` instead. Kept concretely
+    /// typed here because `RootView`/`AppCoordinator` still drive full
+    /// syncs directly.
     let syncEngine: SyncEngine
 
     /// Camera capture wraps AVCaptureSession, which shouldn't be shared across
@@ -73,6 +89,9 @@ final class AppDependencyContainer {
         authService: AuthService,
         roomSharingService: RoomSharingService,
         itemGiftingService: ItemGiftingService,
+        deviceTokenService: DeviceTokenService,
+        pushNotificationPermissionService: PushNotificationPermissionService,
+        analytics: AnalyticsService,
         homeRepository: HomeRepository,
         roomRepository: RoomRepository,
         itemRepository: ItemRepository,
@@ -94,6 +113,9 @@ final class AppDependencyContainer {
         self.authService = authService
         self.roomSharingService = roomSharingService
         self.itemGiftingService = itemGiftingService
+        self.deviceTokenService = deviceTokenService
+        self.pushNotificationPermissionService = pushNotificationPermissionService
+        self.analytics = analytics
         self.syncEngine = SyncEngine(modelContainer: modelContainer)
         self.homeRepository = homeRepository
         self.roomRepository = roomRepository
@@ -124,6 +146,9 @@ final class AppDependencyContainer {
             authService: SupabaseAuthService(),
             roomSharingService: SupabaseRoomSharingService(),
             itemGiftingService: SupabaseItemGiftingService(),
+            deviceTokenService: SupabaseDeviceTokenService(),
+            pushNotificationPermissionService: SystemPushNotificationPermissionService(),
+            analytics: FirebaseAnalyticsService(),
             homeRepository: SwiftDataHomeRepository(modelContainer: modelContainer),
             roomRepository: SwiftDataRoomRepository(modelContainer: modelContainer),
             itemRepository: SwiftDataItemRepository(modelContainer: modelContainer),
@@ -154,6 +179,9 @@ final class AppDependencyContainer {
             authService: MockAuthService(),
             roomSharingService: MockRoomSharingService(),
             itemGiftingService: MockItemGiftingService(),
+            deviceTokenService: MockDeviceTokenService(),
+            pushNotificationPermissionService: MockPushNotificationPermissionService(),
+            analytics: MockAnalyticsService(),
             homeRepository: SwiftDataHomeRepository(modelContainer: modelContainer),
             roomRepository: SwiftDataRoomRepository(modelContainer: modelContainer),
             itemRepository: SwiftDataItemRepository(modelContainer: modelContainer),

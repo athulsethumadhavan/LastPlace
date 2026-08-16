@@ -173,6 +173,7 @@ struct ScanSaveItemView: View {
     private func saveTapped() {
         Task {
             if let _ = await viewModel.save() {
+                coordinator.recordItemSaved()
                 homeCoordinator.refreshRoomDetail()
                 homeCoordinator.refreshHome()
                 coordinator.goToReview()

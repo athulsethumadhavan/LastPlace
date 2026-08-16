@@ -109,6 +109,9 @@ final class SettingsCoordinator {
             roomRepository: container.roomRepository,
             itemRepository: container.itemRepository,
             imageStorage: container.imageStorage,
+            syncEngine: container.syncEngine,
+            authService: container.authService,
+            analytics: container.analytics,
             logger: container.logger,
             onAccepted: { [weak self] in self?.notifyGiftAccepted() }
         )
@@ -130,7 +133,10 @@ final class SettingsCoordinator {
         case .dataManagement:
             DataManagementView(coordinator: self, viewModel: makeDataManagementViewModel())
         case .account:
-            AccountView(authService: container.authService) { [weak self] in
+            AccountView(
+                authService: container.authService,
+                deviceTokenService: container.deviceTokenService
+            ) { [weak self] in
                 self?.onSignedOut?()
             }
         case .sharedRooms:

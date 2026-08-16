@@ -135,11 +135,15 @@ struct GiftsView: View {
     private func pendingIncomingRow(_ summary: IncomingGiftSummary) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 12) {
-                Image(systemName: summary.gift.itemCategory.symbolName)
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(AppColor.accent)
-                    .frame(width: 40, height: 40)
-                    .background(AppColor.surface, in: Circle())
+                giftThumbnail(
+                    gift: summary.gift,
+                    senderID: summary.gift.fromUserID,
+                    // Incoming and still pending, so RLS grants read access.
+                    canLoadImage: true,
+                    size: 40,
+                    symbolSize: 18,
+                    tint: AppColor.accent
+                )
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(summary.gift.itemName)
@@ -200,11 +204,16 @@ struct GiftsView: View {
 
     private func outgoingRow(_ summary: OutgoingGiftSummary) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: summary.gift.itemCategory.symbolName)
-                .font(.system(size: 18, weight: .medium))
-                .foregroundStyle(AppColor.accent)
-                .frame(width: 40, height: 40)
-                .background(AppColor.surface, in: Circle())
+            // Outgoing: the sender owns this image, so the plain owner
+            // policy grants access regardless of the gift's status.
+            giftThumbnail(
+                gift: summary.gift,
+                senderID: summary.gift.fromUserID,
+                canLoadImage: true,
+                size: 40,
+                symbolSize: 18,
+                tint: AppColor.accent
+            )
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(summary.gift.itemName)
@@ -242,11 +251,19 @@ struct GiftsView: View {
             VStack(spacing: 10) {
                 ForEach(viewModel.resolvedIncoming) { summary in
                     HStack(spacing: 12) {
-                        Image(systemName: summary.gift.itemCategory.symbolName)
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(AppColor.textSecondary)
-                            .frame(width: 34, height: 34)
-                            .background(AppColor.surface, in: Circle())
+                        // Glyph only: this gift is resolved, so the
+                        // recipient's read access to the sender's Storage
+                        // object has lapsed. An accepted gift's photo now
+                        // lives in this account's own item, which is where
+                        // the person can see it.
+                        giftThumbnail(
+                            gift: summary.gift,
+                            senderID: summary.gift.fromUserID,
+                            canLoadImage: false,
+                            size: 34,
+                            symbolSize: 16,
+                            tint: AppColor.textSecondary
+                        )
                         VStack(alignment: .leading, spacing: 2) {
                             Text(summary.gift.itemName)
                                 .font(AppFont.body(13.5, weight: .semibold))
@@ -261,6 +278,42 @@ struct GiftsView: View {
                     .background(AppColor.cardBackground, in: RoundedRectangle(cornerRadius: AppMetrics.cardRadius, style: .continuous))
                 }
             }
+        }
+    }
+
+    /// The gift's snapshot photo, falling back to the category glyph when
+    /// there's no photo or the viewer can't read it.
+    ///
+    /// `canLoadImage` is the caller's decision because readability depends on
+    /// which side of the gift you're on: the sender owns the Storage object
+    /// and can always read it, while the recipient's access is scoped to
+    /// `status = 'pending'` by RLS. Attempting the download anyway would
+    /// still degrade gracefully, but it'd mean a guaranteed-failing network
+    /// round trip per row on the resolved-gifts list.
+    @ViewBuilder
+    private func giftThumbnail(
+        gift: ItemGift,
+        senderID: UUID,
+        canLoadImage: Bool,
+        size: CGFloat,
+        symbolSize: CGFloat,
+        tint: Color
+    ) -> some View {
+        if let sourcePath = gift.sourceImagePath, canLoadImage {
+            AsyncRemoteImage(
+                path: sourcePath,
+                contentMode: .fill,
+                placeholderSymbol: gift.itemCategory.symbolName,
+                load: viewModel.loadGiftImage(senderID: senderID)
+            )
+            .frame(width: size, height: size)
+            .clipShape(Circle())
+        } else {
+            Image(systemName: gift.itemCategory.symbolName)
+                .font(.system(size: symbolSize, weight: .medium))
+                .foregroundStyle(tint)
+                .frame(width: size, height: size)
+                .background(AppColor.surface, in: Circle())
         }
     }
 

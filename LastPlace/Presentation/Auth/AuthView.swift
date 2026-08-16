@@ -22,9 +22,17 @@ struct AuthView: View {
         case fullName, email, password, confirmPassword
     }
 
-    init(authService: AuthService, onAuthenticated: @escaping @MainActor (AuthUser) -> Void) {
+    init(
+        authService: AuthService,
+        analytics: AnalyticsService,
+        onAuthenticated: @escaping @MainActor (AuthUser) -> Void
+    ) {
         self.authService = authService
-        _viewModel = State(initialValue: AuthViewModel(authService: authService, onAuthenticated: onAuthenticated))
+        _viewModel = State(initialValue: AuthViewModel(
+            authService: authService,
+            analytics: analytics,
+            onAuthenticated: onAuthenticated
+        ))
     }
 
     var body: some View {
@@ -253,5 +261,5 @@ struct AuthView: View {
 }
 
 #Preview {
-    AuthView(authService: MockAuthService()) { _ in }
+    AuthView(authService: MockAuthService(), analytics: MockAnalyticsService()) { _ in }
 }

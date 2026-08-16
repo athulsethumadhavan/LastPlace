@@ -13,8 +13,16 @@ struct AccountView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showingDeleteConfirmation = false
 
-    init(authService: AuthService, onSignedOut: @escaping @MainActor () -> Void) {
-        _viewModel = State(initialValue: AccountViewModel(authService: authService, onSignedOut: onSignedOut))
+    init(
+        authService: AuthService,
+        deviceTokenService: DeviceTokenService,
+        onSignedOut: @escaping @MainActor () -> Void
+    ) {
+        _viewModel = State(initialValue: AccountViewModel(
+            authService: authService,
+            deviceTokenService: deviceTokenService,
+            onSignedOut: onSignedOut
+        ))
     }
 
     var body: some View {
@@ -77,5 +85,8 @@ struct AccountView: View {
 }
 
 #Preview {
-    AccountView(authService: MockAuthService(user: AuthUser(id: UUID(), email: "preview@example.com"))) {}
+    AccountView(
+        authService: MockAuthService(user: AuthUser(id: UUID(), email: "preview@example.com")),
+        deviceTokenService: MockDeviceTokenService()
+    ) {}
 }

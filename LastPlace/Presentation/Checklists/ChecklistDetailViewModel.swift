@@ -25,6 +25,7 @@ final class ChecklistDetailViewModel {
     private let resetChecklistUseCase: ResetChecklistUseCase
     private let deleteChecklistUseCase: DeleteChecklistUseCase
     private let itemRepository: ItemRepository
+    private let analytics: AnalyticsService
     private let logger: AppLogger
 
     init(
@@ -35,6 +36,7 @@ final class ChecklistDetailViewModel {
         resetChecklist: ResetChecklistUseCase,
         deleteChecklist: DeleteChecklistUseCase,
         itemRepository: ItemRepository,
+        analytics: AnalyticsService,
         logger: AppLogger
     ) {
         self.checklistID = checklistID
@@ -44,6 +46,7 @@ final class ChecklistDetailViewModel {
         self.resetChecklistUseCase = resetChecklist
         self.deleteChecklistUseCase = deleteChecklist
         self.itemRepository = itemRepository
+        self.analytics = analytics
         self.logger = logger
     }
 
@@ -60,10 +63,25 @@ final class ChecklistDetailViewModel {
         }
     }
 
+    /// Every entry ticked, and there's at least one -- an empty checklist
+    /// isn't "complete." Drives the `.checklistCompleted` analytics event.
+    private var isFullyComplete: Bool {
+        guard let entries = state.value?.entries, !entries.isEmpty else { return false }
+        return entries.allSatisfy(\.isCompleted)
+    }
+
     func toggle(_ entryID: UUID) async {
         do {
+            let wasFullyComplete = isFullyComplete
             _ = try await toggleEntryUseCase.execute(entryID: entryID)
             await load()
+            // Fires on the transition into "everything ticked," not on
+            // every tick -- and the `wasFullyComplete` guard stops
+            // un-ticking and re-ticking the last entry from logging it
+            // again. Entry count only; no titles.
+            if !wasFullyComplete, isFullyComplete, let entries = state.value?.entries {
+                analytics.log(.checklistCompleted(entryCount: entries.count))
+            }
         } catch {
             logger.error("Toggle checklist entry failed", error: error, category: "checklist-detail")
             mutationError = UserFacingError.from(error)

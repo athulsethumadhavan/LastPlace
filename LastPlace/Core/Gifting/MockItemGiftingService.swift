@@ -73,6 +73,10 @@ final class MockItemGiftingService: ItemGiftingService, @unchecked Sendable {
         return (item, nil)
     }
 
+    func loadGiftImageData(sourcePath: String, senderID: UUID) async throws -> Data {
+        Data()
+    }
+
     func fetchProfile(userID: UUID) async throws -> SharingProfile? {
         profiles[userID]
     }

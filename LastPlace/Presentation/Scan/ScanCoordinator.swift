@@ -41,6 +41,10 @@ final class ScanCoordinator {
     var errorAlert: UserFacingError?
     private(set) var captures: [ScanCapture] = []
     private(set) var session: ScanSession?
+    /// How many items have been saved during this scan session -- reported
+    /// in the `.scanCompleted` analytics event, to show how many captures
+    /// actually turn into saved items rather than getting abandoned.
+    private(set) var itemsSavedCount: Int = 0
 
     // MARK: Dependencies
 
@@ -134,6 +138,10 @@ final class ScanCoordinator {
         defer { isCompleting = false }
         do {
             _ = try await completeScan.execute(sessionID: session.id)
+            container.analytics.log(.scanCompleted(
+                captureCount: captures.count,
+                itemsSaved: itemsSavedCount
+            ))
             await camera.stop()
             return true
         } catch {
@@ -180,19 +188,38 @@ final class ScanCoordinator {
     /// like before this fallback existed.
     private func runDetection(for captureID: UUID, imageData: Data) {
         Task { [aiIdentification, detection, minimumDetectionConfidence, logger, weak self] in
-            if let aiResult = try? await aiIdentification.identifyItem(in: imageData),
-               !aiResult.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                guard let self else { return }
-                self.applyDetections(
-                    [DetectedObject(
-                        label: aiResult.name,
-                        confidence: aiResult.confidence,
-                        boundingBox: CGRect(x: 0, y: 0, width: 1, height: 1),
-                        suggestedCategory: aiResult.category
-                    )],
-                    to: captureID
+            // Deliberately do/catch rather than `try?`: falling back to
+            // Vision silently is right for the *user*, but it also made the
+            // AI path completely undiagnosable -- a missing API key, an
+            // expired session, and "the model saw nothing" all looked
+            // identical from outside, and the only visible symptom was a
+            // vaguer item name. Log the reason, still fall back.
+            do {
+                let aiResult = try await aiIdentification.identifyItem(in: imageData)
+                let trimmedName = aiResult.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmedName.isEmpty {
+                    guard let self else { return }
+                    self.applyDetections(
+                        [DetectedObject(
+                            label: trimmedName,
+                            confidence: aiResult.confidence,
+                            boundingBox: CGRect(x: 0, y: 0, width: 1, height: 1),
+                            suggestedCategory: aiResult.category
+                        )],
+                        to: captureID
+                    )
+                    return
+                }
+                logger.warning(
+                    "AI identification returned an empty name; falling back to Vision",
+                    category: "scan"
                 )
-                return
+            } catch {
+                logger.error(
+                    "AI identification failed; falling back to Vision",
+                    error: error,
+                    category: "scan"
+                )
             }
 
             do {
@@ -231,6 +258,11 @@ final class ScanCoordinator {
     func goToReview() { screen = .review }
     func goToCapture() { screen = .capture }
 
+    /// Called by `ScanSaveItemView` after a successful save. The item-level
+    /// `.itemSaved` event is logged by `ScanSaveItemViewModel` itself; this
+    /// only keeps the per-session tally for `.scanCompleted`.
+    func recordItemSaved() { itemsSavedCount += 1 }
+
     func selectDetection(_ detection: DetectedObject, for captureID: UUID) {
         screen = .saveDetection(captureID: captureID, detection: detection)
     }
@@ -253,6 +285,7 @@ final class ScanCoordinator {
             detection: detection,
             confidence: detection.confidence,
             saveItem: saveItem,
+            analytics: container.analytics,
             logger: logger
         )
     }

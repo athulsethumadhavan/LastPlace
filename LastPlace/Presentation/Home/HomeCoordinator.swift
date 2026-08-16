@@ -115,6 +115,7 @@ final class HomeCoordinator {
                 roomRepository: container.roomRepository,
                 imageStorage: container.imageStorage
             ),
+            analytics: container.analytics,
             logger: container.logger
         )
     }
@@ -172,6 +173,10 @@ final class HomeCoordinator {
                 snapshotRepository: container.snapshotRepository
             ),
             itemGiftingService: container.itemGiftingService,
+            syncEngine: container.syncEngine,
+            authService: container.authService,
+            imageStorage: container.imageStorage,
+            analytics: container.analytics,
             logger: container.logger
         )
     }
@@ -180,6 +185,10 @@ final class HomeCoordinator {
         ShareRoomViewModel(
             roomID: roomID,
             roomSharingService: container.roomSharingService,
+            syncEngine: container.syncEngine,
+            authService: container.authService,
+            imageStorage: container.imageStorage,
+            analytics: container.analytics,
             logger: container.logger
         )
     }
@@ -197,6 +206,7 @@ final class HomeCoordinator {
                 snapshotRepository: container.snapshotRepository,
                 imageStorage: container.imageStorage
             ),
+            analytics: container.analytics,
             logger: container.logger
         )
     }
