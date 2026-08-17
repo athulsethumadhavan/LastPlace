@@ -57,6 +57,12 @@ final class GiftsViewModel {
     /// next `SyncEngine` pass.
     private let itemRepository: ItemRepository
     private let imageStorage: ImageStorageService
+    /// Needed by `accept(_:intoRoomID:)` to push any locally-created room
+    /// up to Postgres before the `accept_gift` RPC tries to validate it --
+    /// see that method's doc comment.
+    private let syncEngine: PendingChangesSyncing
+    private let authService: AuthService
+    private let analytics: AnalyticsService
     private let logger: AppLogger
     /// Tells `SettingsCoordinator` a gift was accepted, so it can notify
     /// Home to reload -- without this, the item this just wrote to local
@@ -72,6 +78,9 @@ final class GiftsViewModel {
         roomRepository: RoomRepository,
         itemRepository: ItemRepository,
         imageStorage: ImageStorageService,
+        syncEngine: PendingChangesSyncing,
+        authService: AuthService,
+        analytics: AnalyticsService,
         logger: AppLogger,
         onAccepted: @escaping @MainActor () -> Void
     ) {
@@ -80,6 +89,9 @@ final class GiftsViewModel {
         self.roomRepository = roomRepository
         self.itemRepository = itemRepository
         self.imageStorage = imageStorage
+        self.syncEngine = syncEngine
+        self.authService = authService
+        self.analytics = analytics
         self.logger = logger
         self.onAccepted = onAccepted
 
@@ -124,6 +136,20 @@ final class GiftsViewModel {
         await refresh()
     }
 
+    /// Loader handed to `AsyncRemoteImage` for a gift's snapshot photo. The
+    /// sender's id has to travel with the path because the Storage object
+    /// lives under *their* folder, not this account's.
+    ///
+    /// Fails for already-resolved gifts by design -- the recipient's read
+    /// access is scoped to `status = 'pending'` -- so the view falls back to
+    /// the category glyph rather than showing an error.
+    func loadGiftImage(senderID: UUID) -> (String) async throws -> Data {
+        let service = itemGiftingService
+        return { path in
+            try await service.loadGiftImageData(sourcePath: path, senderID: senderID)
+        }
+    }
+
     /// Destination rooms for the accept flow's room picker — this device's
     /// own inventory, same lookup `CreateRoomHost` uses.
     func fetchRoomsForAccept() async throws -> [Room] {
@@ -145,11 +171,35 @@ final class GiftsViewModel {
         Task {
             defer { mutatingGiftID = nil }
             do {
+                // The room picker lists rooms from local SwiftData, but
+                // `accept_gift` validates ownership against the Postgres
+                // `rooms` table. A room created on this device and not yet
+                // pushed exists only locally, so the RPC correctly can't
+                // find it and the accept fails with `roomNotOwned` -- which
+                // reads as "you picked someone else's room" even though the
+                // person picked a room they'd just made themselves. Sync
+                // first so the chosen room is guaranteed to exist
+                // server-side. Best-effort: if this fails (offline), the
+                // accept below fails with the same clear error it would
+                // have anyway, rather than this throwing something vaguer.
+                if let userID = await authService.currentUser?.id {
+                    try? await syncEngine.sync(userID: userID, imageStorage: imageStorage)
+                }
                 let (item, imageData) = try await itemGiftingService.acceptGift(giftID, intoRoomID: roomID)
                 if let imageData, let imagePath = item.imagePath {
                     try await imageStorage.restoreImageData(imageData, at: imagePath)
                 }
                 _ = try await itemRepository.create(item)
+                analytics.log(.giftAccepted)
+                // The accepted gift also becomes a new item in this
+                // account's inventory, so it counts as an item saved --
+                // logged with `.giftAccepted` as the source so it can be
+                // told apart from scanned and manually-added items.
+                analytics.log(.itemSaved(
+                    source: .giftAccepted,
+                    category: item.category,
+                    hasPhoto: item.imagePath != nil
+                ))
                 await refresh()
                 onAccepted()
             } catch {

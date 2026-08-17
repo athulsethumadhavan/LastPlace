@@ -9,8 +9,15 @@ import WidgetKit
 
 @ModelActor
 actor SwiftDataChecklistRepository: ChecklistRepository {
+    /// See the matching note in `SwiftDataItemRepository`: a synced row that
+    /// gets deleted is only flagged `.pendingDelete` until the next sync
+    /// removes it server-side, so reads have to exclude it.
+    private static let deletedStatus = SyncStatus.pendingDelete.rawValue
+
     func fetchChecklists() async throws -> [Checklist] {
+        let deleted = Self.deletedStatus
         let descriptor = FetchDescriptor<ChecklistEntity>(
+            predicate: #Predicate { $0.syncStatusRaw != deleted },
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
         )
         do {
@@ -22,13 +29,17 @@ actor SwiftDataChecklistRepository: ChecklistRepository {
 
     func fetchChecklist(id: UUID) async throws -> Checklist {
         let entity = try fetchChecklistEntity(id: id)
+        guard entity.syncStatusRaw != Self.deletedStatus else {
+            throw RepositoryError.notFound
+        }
         return ChecklistMapper.toDomain(entity)
     }
 
     func fetchEntries(checklistID: UUID) async throws -> [ChecklistEntry] {
         let target = checklistID
+        let deleted = Self.deletedStatus
         let descriptor = FetchDescriptor<ChecklistEntryEntity>(
-            predicate: #Predicate { $0.checklistID == target },
+            predicate: #Predicate { $0.checklistID == target && $0.syncStatusRaw != deleted },
             sortBy: [SortDescriptor(\.sortOrder)]
         )
         do {

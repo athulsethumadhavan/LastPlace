@@ -2,19 +2,21 @@
 //  SharedRoomDetailView.swift
 //  LastPlace
 //
-//  Read-only mirror of `RoomDetailView` for a room shared with you: no
-//  edit/scan/delete/share actions, no checklists — just the room and its
-//  items, live from the owner's account.
+//  A room shared with you: the room and its items, live from the owner's
+//  account. No edit/scan/delete/share actions and no checklists — those stay
+//  with the owner. Items are no longer read-only, though: tapping one pushes
+//  `SharedItemDetailView`, where the location can be updated.
 //
 
 import SwiftUI
 
 struct SharedRoomDetailView: View {
+    let navigator: any SharedRoomNavigator
     @State private var viewModel: SharedRoomDetailViewModel
-    @State private var selectedItem: StoredItem?
     @Environment(\.dismiss) private var dismiss
 
-    init(viewModel: SharedRoomDetailViewModel) {
+    init(navigator: any SharedRoomNavigator, viewModel: SharedRoomDetailViewModel) {
+        self.navigator = navigator
         _viewModel = State(initialValue: viewModel)
     }
 
@@ -28,10 +30,15 @@ struct SharedRoomDetailView: View {
         .task {
             if case .idle = viewModel.state { await viewModel.load() }
         }
-        .refreshable { await viewModel.load() }
-        .sheet(item: $selectedItem) { item in
-            SharedItemDetailSheet(item: item, loadImage: viewModel.loadImageData)
+        // Reloads on return rather than only on first appearance: a viewer
+        // who just updated an item's location pops back to this grid, and
+        // without this the card would still show the old location.
+        .onAppear {
+            if case .loaded = viewModel.state {
+                Task { await viewModel.load() }
+            }
         }
+        .refreshable { await viewModel.load() }
     }
 
     private var navigationTitle: String {
@@ -102,68 +109,23 @@ struct SharedRoomDetailView: View {
                     symbolName: "shippingbox"
                 )
                 .padding(.vertical, 8)
+                // No "add item" action here even though viewers can now
+                // write: they can record where an existing thing is, not
+                // introduce new things into someone else's inventory.
             } else {
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                     ForEach(items) { item in
                         SharedItemCard(item: item, loadImage: viewModel.loadImageData) {
-                            selectedItem = item
+                            navigator.pushSharedItemDetail(
+                                itemID: item.id,
+                                roomID: viewModel.roomID,
+                                ownerID: viewModel.ownerID
+                            )
                         }
                         .frame(maxWidth: .infinity)
                     }
                 }
             }
-        }
-    }
-}
-
-/// A lightweight read-only detail sheet — this app has no shared-item
-/// editing in this pass, so there's no need for the full `ItemDetailView`
-/// (which assumes local ownership: edit, delete, toggle-importance,
-/// location history).
-private struct SharedItemDetailSheet: View {
-    let item: StoredItem
-    let loadImage: (String) async throws -> Data
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            AppNavBar(title: item.name, onBack: { dismiss() })
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    AsyncRemoteImage(
-                        path: item.imagePath,
-                        contentMode: .fill,
-                        placeholderSymbol: item.category.symbolName,
-                        load: loadImage
-                    )
-                    .frame(height: 220)
-                    .frame(maxWidth: .infinity)
-                    .clipShape(RoundedRectangle(cornerRadius: AppMetrics.cardRadius, style: .continuous))
-
-                    detailRow(label: "Category", value: item.category.displayName)
-                    detailRow(label: "Location", value: item.locationDescription.isEmpty ? "Not set" : item.locationDescription)
-                    detailRow(label: "Last seen", value: item.lastSeenAt.formatted(.relative(presentation: .named)))
-                    if let notes = item.notes, !notes.isEmpty {
-                        detailRow(label: "Notes", value: notes)
-                    }
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 4)
-                .padding(.bottom, 32)
-            }
-        }
-        .background(AppColor.background)
-    }
-
-    private func detailRow(label: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label.uppercased())
-                .font(AppFont.heading(11.5, weight: .semibold))
-                .foregroundStyle(AppColor.textSecondary)
-                .kerning(0.5)
-            Text(value)
-                .font(AppFont.body(15))
-                .foregroundStyle(AppColor.textPrimary)
         }
     }
 }

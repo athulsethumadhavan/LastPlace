@@ -31,11 +31,30 @@ final class ShareRoomViewModel {
     private(set) var mutatingShareID: UUID?
 
     private let roomSharingService: RoomSharingService
+    /// See `invite()` -- the `share_room` RPC validates room ownership
+    /// server-side, so a room that exists only in local SwiftData has to be
+    /// pushed first.
+    private let syncEngine: PendingChangesSyncing
+    private let authService: AuthService
+    private let imageStorage: ImageStorageService
+    private let analytics: AnalyticsService
     private let logger: AppLogger
 
-    init(roomID: UUID, roomSharingService: RoomSharingService, logger: AppLogger) {
+    init(
+        roomID: UUID,
+        roomSharingService: RoomSharingService,
+        syncEngine: PendingChangesSyncing,
+        authService: AuthService,
+        imageStorage: ImageStorageService,
+        analytics: AnalyticsService,
+        logger: AppLogger
+    ) {
         self.roomID = roomID
         self.roomSharingService = roomSharingService
+        self.syncEngine = syncEngine
+        self.authService = authService
+        self.imageStorage = imageStorage
+        self.analytics = analytics
         self.logger = logger
     }
 
@@ -57,7 +76,15 @@ final class ShareRoomViewModel {
         Task {
             defer { isInviting = false }
             do {
+                // Same reason as `GiftsViewModel.accept` -- this room may
+                // have been created locally and not pushed yet, in which
+                // case the server-side ownership check can't see it.
+                if let userID = await authService.currentUser?.id {
+                    try? await syncEngine.sync(userID: userID, imageStorage: imageStorage)
+                }
                 _ = try await roomSharingService.inviteToRoom(roomID: roomID, inviteeEmail: email)
+                // No parameters -- deliberately not the invitee's email.
+                analytics.log(.roomShared)
                 inviteEmail = ""
                 await refresh()
             } catch {

@@ -37,7 +37,16 @@ struct VisionObjectDetectionService: ObjectDetectionService {
     }
 
     func detect(in imageData: Data, minimumConfidence: Double) async throws -> [DetectedObject] {
-        guard let cgImage = Self.makeCGImage(from: imageData) else {
+        // Everything below works in a single, already-upright coordinate
+        // space -- see `makeOrientedCGImage`. That matters because a
+        // `CGImage` decoded straight from JPEG bytes is the raw sensor
+        // buffer with EXIF orientation *not* applied, so without this every
+        // request ran against a sideways image and returned confident
+        // nonsense. Normalizing once up front is also why the saliency box
+        // and the crop below can share coordinates without any transform.
+        guard let cgImage = Self.makeOrientedCGImage(from: imageData) else {
+            // `VNImageRequestHandler(data:)` reads EXIF itself, so the
+            // fallback path is already orientation-correct.
             return try await classify(cgImage: nil, imageData: imageData, boundingBox: Self.fullFrame, minimumConfidence: minimumConfidence)
         }
 
@@ -102,9 +111,25 @@ struct VisionObjectDetectionService: ObjectDetectionService {
         return cgImage.cropping(to: pixelRect)
     }
 
-    private static func makeCGImage(from data: Data) -> CGImage? {
+    /// Decodes to a `CGImage` with the file's EXIF orientation already
+    /// baked in, so the returned pixels are visually upright and can be
+    /// treated as `.up` everywhere downstream.
+    ///
+    /// Uses the thumbnail API purely because
+    /// `kCGImageSourceCreateThumbnailWithTransform` is what applies the
+    /// orientation transform -- `CGImageSourceCreateImageAtIndex` has no
+    /// equivalent option and hands back the raw, unrotated buffer. Capping
+    /// the long edge is a welcome side effect: a full 12MP frame is far more
+    /// than Vision's classifier needs, and downsizing makes both the
+    /// saliency pass and the classification meaningfully faster.
+    private static func makeOrientedCGImage(from data: Data, maxPixelSize: Int = 2048) -> CGImage? {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
-        return CGImageSourceCreateImageAtIndex(source, 0, nil)
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize
+        ]
+        return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
     }
 
     // MARK: - Classification

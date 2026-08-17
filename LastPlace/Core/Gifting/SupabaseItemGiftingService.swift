@@ -159,12 +159,12 @@ final class SupabaseItemGiftingService: ItemGiftingService {
             // already resolved at this point regardless of what happens
             // below, so none of this can fail the accept as a whole.
             guard let data = try? await client.storage.from("item-images")
-                .download(path: "\(gift.fromUserID)/\(sourcePath)") else {
+                .download(path: gift.fromUserID.storageKey(for: sourcePath)) else {
                 return (item, nil)
             }
             let filename = "gift-\(UUID().uuidString).jpg"
             guard (try? await client.storage.from("item-images").upload(
-                "\(recipientID)/\(filename)",
+                recipientID.storageKey(for: filename),
                 data: data,
                 options: FileOptions(contentType: "image/jpeg", upsert: true)
             )) != nil else {
@@ -188,7 +188,7 @@ final class SupabaseItemGiftingService: ItemGiftingService {
                 // if this also fails, the item is still a perfectly valid,
                 // photo-less item, not a lost gift.
                 try? await client.storage.from("item-images")
-                    .remove(paths: ["\(recipientID)/\(filename)"])
+                    .remove(paths: [recipientID.storageKey(for: filename)])
                 return (item, nil)
             }
         } catch {
@@ -200,6 +200,15 @@ final class SupabaseItemGiftingService: ItemGiftingService {
                 throw ItemGiftingError.roomNotOwned
             }
             throw ItemGiftingError.acceptFailed(underlying: message)
+        }
+    }
+
+    func loadGiftImageData(sourcePath: String, senderID: UUID) async throws -> Data {
+        do {
+            return try await client.storage.from("item-images")
+                .download(path: senderID.storageKey(for: sourcePath))
+        } catch {
+            throw ItemGiftingError.fetchFailed(underlying: error.localizedDescription)
         }
     }
 

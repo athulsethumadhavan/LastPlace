@@ -93,6 +93,7 @@ final class ChecklistCoordinator {
             resetChecklist: DefaultResetChecklistUseCase(checklistRepository: container.checklistRepository),
             deleteChecklist: DefaultDeleteChecklistUseCase(checklistRepository: container.checklistRepository),
             itemRepository: container.itemRepository,
+            analytics: container.analytics,
             logger: container.logger
         )
         activeChecklistDetailViewModel = viewModel

@@ -66,7 +66,12 @@ enum ItemGiftingError: LocalizedError, Sendable {
         case .alreadyResolved:
             return "This gift has already been accepted or declined."
         case .roomNotOwned:
-            return "Choose a room from your own inventory."
+            // Reached when the `accept_gift` RPC can't find the chosen room
+            // under the caller's user id. In practice the likeliest cause
+            // isn't picking someone else's room -- the picker only ever
+            // lists your own -- but a room that hasn't finished syncing to
+            // the server yet, so the message leads with that.
+            return "That room hasn't finished syncing yet. Check your connection and try again in a moment."
         case .alreadyPendingGift:
             return "This item already has a pending gift. Cancel it before sending another."
         case .sendFailed(let underlying), .fetchFailed(let underlying), .acceptFailed(let underlying):
@@ -107,6 +112,22 @@ protocol ItemGiftingService: Sendable {
     /// and belongs in local-cache-plus-sync like anything else they own,
     /// unlike shared-room content which never touches local storage.
     func acceptGift(_ giftID: UUID, intoRoomID roomID: UUID) async throws -> (item: StoredItem, imageData: Data?)
+
+    /// Downloads a gift's snapshot photo straight from the sender's Storage
+    /// folder, for display in the Gifts list before the recipient has
+    /// accepted anything (at which point they have no local copy of their
+    /// own yet).
+    ///
+    /// `sourcePath` is the bare filename from `item_gifts.source_image_path`
+    /// and `senderID` its `from_user_id` -- both needed because Storage keys
+    /// are `{owner_id}/{filename}` and the owner here is the *other*
+    /// account. Mirrors `RoomSharingService.loadSharedImageData`.
+    ///
+    /// Expect this to fail for a gift that's already been accepted or
+    /// declined: the "Gift recipient can read the source item image" RLS
+    /// policy only grants the recipient access while `status = 'pending'`.
+    /// Callers should degrade gracefully rather than treat that as an error.
+    func loadGiftImageData(sourcePath: String, senderID: UUID) async throws -> Data
 
     func fetchProfile(userID: UUID) async throws -> SharingProfile?
 

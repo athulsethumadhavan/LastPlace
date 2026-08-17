@@ -163,6 +163,10 @@ struct ShareRoomView: View {
         viewModel: ShareRoomViewModel(
             roomID: UUID(),
             roomSharingService: MockRoomSharingService(),
+            syncEngine: MockPendingChangesSyncing(),
+            authService: MockAuthService(),
+            imageStorage: MockImageStorageService(),
+            analytics: MockAnalyticsService(),
             logger: OSAppLogger()
         )
     )

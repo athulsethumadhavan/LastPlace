@@ -125,14 +125,51 @@ final class SupabaseAuthService: AuthService {
         }
     }
 
-    func signInWithApple(idToken: String, nonce: String) async throws -> AuthUser {
+    func signInWithApple(idToken: String, nonce: String, fullName: String?) async throws -> AuthUser {
         do {
             let session = try await client.auth.signInWithIdToken(
                 credentials: OpenIDConnectCredentials(provider: .apple, idToken: idToken, nonce: nonce)
             )
+            // Apple's identity token carries no name -- only `sub`, `email`
+            // and verification flags -- so unlike Google there is nothing
+            // for Supabase to populate `raw_user_meta_data` from. The name
+            // has to be written explicitly, and only the first-ever
+            // authorization supplies it.
+            await persistNameIfMissing(fullName, for: session.user)
             return AuthUser(session.user)
         } catch {
             throw AuthError.appleSignInFailed(underlying: error.localizedDescription)
+        }
+    }
+
+    /// Writes `fullName` into the user's auth metadata when the account
+    /// doesn't already have one.
+    ///
+    /// Guarded on "missing" rather than always writing, because the name is
+    /// only ever available on a first Apple authorization: overwriting on
+    /// later sign-ins would replace a real name with nothing. The same
+    /// guard makes this safe to call from Google, where a name usually
+    /// already arrived via the token.
+    ///
+    /// Deliberately best-effort. A failure here means the person has an
+    /// account without a display name, which the UI already handles by
+    /// falling back to their email -- not a reason to fail a sign-in that
+    /// otherwise succeeded.
+    ///
+    /// Writes to auth metadata rather than `profiles` directly so there's
+    /// one source of truth; `sync_profile_display_name` mirrors it across.
+    private func persistNameIfMissing(_ fullName: String?, for user: Auth.User) async {
+        guard let fullName, !fullName.isEmpty else { return }
+        let existing = user.userMetadata["full_name"]?.stringValue?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard existing == nil || existing?.isEmpty == true else { return }
+
+        do {
+            _ = try await client.auth.update(
+                user: UserAttributes(data: ["full_name": .string(fullName)])
+            )
+        } catch {
+            // Intentionally swallowed -- see the doc comment.
         }
     }
 
@@ -147,9 +184,16 @@ final class SupabaseAuthService: AuthService {
                 throw AuthError.googleSignInFailed(underlying: "No identity token returned.")
             }
             let accessToken = result.user.accessToken.tokenString
+            let googleName = result.user.profile?.name
             let session = try await client.auth.signInWithIdToken(
                 credentials: OpenIDConnectCredentials(provider: .google, idToken: idToken, accessToken: accessToken)
             )
+            // Google's identity token does normally include a `name` claim,
+            // which Supabase copies into `raw_user_meta_data` on its own --
+            // so this is a safety net, not the main path. It only writes
+            // when nothing is there, so a token that did carry the name
+            // wins and this becomes a no-op.
+            await persistNameIfMissing(googleName, for: session.user)
             return AuthUser(session.user)
         } catch let error as AuthError {
             throw error

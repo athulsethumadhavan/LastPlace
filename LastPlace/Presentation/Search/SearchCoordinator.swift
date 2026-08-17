@@ -47,6 +47,7 @@ final class SearchCoordinator {
     private func makeSearchViewModel() -> SearchViewModel {
         SearchViewModel(
             searchItems: DefaultSearchItemsUseCase(itemRepository: container.itemRepository),
+            analytics: container.analytics,
             logger: container.logger
         )
     }
@@ -86,6 +87,10 @@ final class SearchCoordinator {
                 snapshotRepository: container.snapshotRepository
             ),
             itemGiftingService: container.itemGiftingService,
+            syncEngine: container.syncEngine,
+            authService: container.authService,
+            imageStorage: container.imageStorage,
+            analytics: container.analytics,
             logger: container.logger
         )
     }
@@ -103,6 +108,7 @@ final class SearchCoordinator {
                 snapshotRepository: container.snapshotRepository,
                 imageStorage: container.imageStorage
             ),
+            analytics: container.analytics,
             logger: container.logger
         )
     }
