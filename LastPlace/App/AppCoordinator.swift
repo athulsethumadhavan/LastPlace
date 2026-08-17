@@ -174,11 +174,11 @@ final class AppCoordinator {
         // this user's, and nothing would re-wipe or re-fetch.
     }
 
-    /// Called after `AccountView` has already signed the user out (or
+    /// Called after Settings' account section has already signed the user out (or
     /// deleted their account) via `AuthService` directly -- this just
     /// reacts to that by sending the whole app back through the
     /// `.authRequired` gate.
-    /// Called after `AccountView` has already ended the session. Clears the
+    /// Called after Settings' account section has already ended the session. Clears the
     /// local store on the way out so the signed-out device holds nothing.
     ///
     /// The data isn't lost: everything here has been pushed to Postgres, so

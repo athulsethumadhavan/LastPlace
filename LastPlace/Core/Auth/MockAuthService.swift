@@ -67,8 +67,8 @@ final class MockAuthService: AuthService, @unchecked Sendable {
 
     func resendVerificationCode(email: String) async throws {}
 
-    func signInWithApple(idToken: String, nonce: String) async throws -> AuthUser {
-        let signedInUser = AuthUser(id: UUID(), email: nil)
+    func signInWithApple(idToken: String, nonce: String, fullName: String?) async throws -> AuthUser {
+        let signedInUser = AuthUser(id: UUID(), email: nil, fullName: fullName)
         user = signedInUser
         continuation?.yield(signedInUser)
         return signedInUser

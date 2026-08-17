@@ -8,10 +8,16 @@ import SwiftData
 
 @ModelActor
 actor SwiftDataSnapshotRepository: SnapshotRepository {
+    /// See the matching note in `SwiftDataItemRepository`: a synced row that
+    /// gets deleted is only flagged `.pendingDelete` until the next sync
+    /// removes it server-side, so reads have to exclude it.
+    private static let deletedStatus = SyncStatus.pendingDelete.rawValue
+
     func fetchSnapshots(itemID: UUID) async throws -> [ItemSnapshot] {
         let target = itemID
+        let deleted = Self.deletedStatus
         let descriptor = FetchDescriptor<ItemSnapshotEntity>(
-            predicate: #Predicate { $0.itemID == target },
+            predicate: #Predicate { $0.itemID == target && $0.syncStatusRaw != deleted },
             sortBy: [SortDescriptor(\.capturedAt, order: .reverse)]
         )
         do {

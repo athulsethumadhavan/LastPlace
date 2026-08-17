@@ -42,6 +42,15 @@ struct ForgotPasswordView: View {
         }
         .background(AppColor.background)
         .onAppear { isEmailFocused = true }
+        .alert(
+            "Something went wrong",
+            isPresented: Binding(
+                get: { viewModel.errorMessage != nil },
+                set: { if !$0 { viewModel.errorMessage = nil } }
+            ),
+            actions: { Button("OK", role: .cancel) { viewModel.errorMessage = nil } },
+            message: { Text(viewModel.errorMessage ?? "") }
+        )
     }
 
     private var iconBadge: some View {
@@ -86,12 +95,6 @@ struct ForgotPasswordView: View {
                     .padding(.horizontal, 12)
                     .frame(minHeight: 44)
                     .background(AppColor.surface, in: RoundedRectangle(cornerRadius: AppMetrics.plateRadius, style: .continuous))
-            }
-
-            if let errorMessage = viewModel.errorMessage {
-                Text(errorMessage)
-                    .font(AppFont.body(13.5))
-                    .foregroundStyle(.red)
             }
 
             PrimaryButton("Send Reset Link", isEnabled: viewModel.canSubmit, isLoading: viewModel.isLoading) {

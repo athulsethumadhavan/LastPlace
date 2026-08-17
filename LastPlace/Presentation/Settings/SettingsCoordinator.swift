@@ -31,7 +31,7 @@ final class SettingsCoordinator {
     var onGiftAccepted: (() -> Void)?
 
     /// Set by `MainTabView` (via `RootView`/`AppCoordinator`) so a sign-out
-    /// or account deletion in `AccountView` can send the whole app back
+    /// or account deletion in Settings' account section can send the whole app back
     /// through the `.authRequired` gate, not just pop this tab's own
     /// navigation stack.
     @ObservationIgnored
@@ -54,8 +54,18 @@ final class SettingsCoordinator {
 
     // MARK: View-model factories
 
-    private func makeAppearanceViewModel() -> AppearanceViewModel {
+    /// Not private: `SettingsView` renders appearance and account inline
+    /// rather than pushing screens for them, so it builds these itself.
+    func makeAppearanceViewModel() -> AppearanceViewModel {
         AppearanceViewModel(store: container.appearanceSettings)
+    }
+
+    func makeAccountViewModel() -> AccountViewModel {
+        AccountViewModel(
+            authService: container.authService,
+            deviceTokenService: container.deviceTokenService,
+            onSignedOut: { [weak self] in self?.onSignedOut?() }
+        )
     }
 
     private func makeSecurityViewModel() -> SecurityViewModel {
@@ -126,19 +136,10 @@ final class SettingsCoordinator {
             PrivacyView()
         case .permissions:
             PermissionsView()
-        case .appearance:
-            AppearanceView(viewModel: makeAppearanceViewModel())
         case .security:
             SecurityView(viewModel: makeSecurityViewModel())
         case .dataManagement:
             DataManagementView(coordinator: self, viewModel: makeDataManagementViewModel())
-        case .account:
-            AccountView(
-                authService: container.authService,
-                deviceTokenService: container.deviceTokenService
-            ) { [weak self] in
-                self?.onSignedOut?()
-            }
         case .sharedRooms:
             SharedRoomsView(coordinator: self, viewModel: makeSharedRoomsViewModel())
         case .sharedRoomDetail(let roomID, let ownerID):

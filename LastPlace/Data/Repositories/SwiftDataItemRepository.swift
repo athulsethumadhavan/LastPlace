@@ -13,15 +13,33 @@ import WidgetKit
 
 @ModelActor
 actor SwiftDataItemRepository: ItemRepository {
+    /// Deleting a row that's already been synced doesn't remove it -- it's
+    /// flagged `.pendingDelete` so the next `SyncEngine` pass can delete it
+    /// server-side too (see `delete`). Until that runs, the row is still
+    /// physically present, so every read has to exclude it explicitly.
+    ///
+    /// Without this the app looked like it was ignoring deletes entirely:
+    /// the item stayed on Home, stayed searchable, and could still be
+    /// tapped through to its detail screen. Only the photo actually
+    /// disappeared, because image deletion is a real file removal rather
+    /// than a flag.
+    private static let deletedStatus = SyncStatus.pendingDelete.rawValue
+
     func fetchItem(itemID: UUID) async throws -> StoredItem {
         let entity = try fetchEntity(id: itemID)
+        // A tombstoned row should read as gone, not as an item with no
+        // photo -- otherwise a stale navigation path can still open it.
+        guard entity.syncStatusRaw != Self.deletedStatus else {
+            throw RepositoryError.notFound
+        }
         return StoredItemMapper.toDomain(entity)
     }
 
     func fetchItems(roomID: UUID) async throws -> [StoredItem] {
         let target = roomID
+        let deleted = Self.deletedStatus
         let descriptor = FetchDescriptor<StoredItemEntity>(
-            predicate: #Predicate { $0.roomID == target },
+            predicate: #Predicate { $0.roomID == target && $0.syncStatusRaw != deleted },
             sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
         )
         do {
@@ -32,7 +50,9 @@ actor SwiftDataItemRepository: ItemRepository {
     }
 
     func fetchRecentItems(limit: Int) async throws -> [StoredItem] {
+        let deleted = Self.deletedStatus
         var descriptor = FetchDescriptor<StoredItemEntity>(
+            predicate: #Predicate { $0.syncStatusRaw != deleted },
             sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
         )
         descriptor.fetchLimit = max(0, limit)
@@ -44,8 +64,9 @@ actor SwiftDataItemRepository: ItemRepository {
     }
 
     func fetchImportantItems() async throws -> [StoredItem] {
+        let deleted = Self.deletedStatus
         let descriptor = FetchDescriptor<StoredItemEntity>(
-            predicate: #Predicate { $0.isImportant == true },
+            predicate: #Predicate { $0.isImportant == true && $0.syncStatusRaw != deleted },
             sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
         )
         do {
@@ -59,8 +80,11 @@ actor SwiftDataItemRepository: ItemRepository {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !trimmed.isEmpty else { return [] }
 
+        let deleted = Self.deletedStatus
         do {
-            let items = try modelContext.fetch(FetchDescriptor<StoredItemEntity>())
+            let items = try modelContext.fetch(
+                FetchDescriptor<StoredItemEntity>(predicate: #Predicate { $0.syncStatusRaw != deleted })
+            )
             let rooms = try modelContext.fetch(FetchDescriptor<RoomEntity>())
             let roomsByID = Dictionary(uniqueKeysWithValues: rooms.map { ($0.id, $0) })
 

@@ -103,12 +103,6 @@ struct AuthView: View {
                     }
                 }
 
-                if let errorMessage = viewModel.errorMessage {
-                    Text(errorMessage)
-                        .font(AppFont.body(13.5))
-                        .foregroundStyle(.red)
-                }
-
                 PrimaryButton(
                     viewModel.mode.primaryButtonTitle,
                     isEnabled: viewModel.canSubmit,
@@ -139,6 +133,15 @@ struct AuthView: View {
         }
         .background(AppColor.background)
         .scrollDismissesKeyboard(.interactively)
+        .alert(
+            "Something went wrong",
+            isPresented: Binding(
+                get: { viewModel.errorMessage != nil },
+                set: { if !$0 { viewModel.errorMessage = nil } }
+            ),
+            actions: { Button("OK", role: .cancel) { viewModel.errorMessage = nil } },
+            message: { Text(viewModel.errorMessage ?? "") }
+        )
         .sheet(isPresented: $showingForgotPassword) {
             ForgotPasswordView(authService: authService, prefillEmail: viewModel.email)
         }

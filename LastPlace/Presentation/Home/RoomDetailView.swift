@@ -27,6 +27,9 @@ struct RoomDetailView: View {
             }
             content
         }
+        // Same placement as Home's add-room button: an overlay, so the
+        // scroll content keeps full height and runs underneath.
+        .overlay(alignment: .bottomTrailing) { scanButton }
         .background(AppColor.background)
         .toolbar(.hidden, for: .navigationBar)
         .task {
@@ -67,6 +70,37 @@ struct RoomDetailView: View {
     private var navigationTitle: String {
         if case .loaded(let content) = viewModel.state { return content.room.name }
         return "Room"
+    }
+
+    /// Scanning is the primary thing you come to a room to do, but it was
+    /// only reachable from the overflow menu (or the empty state, which
+    /// disappears as soon as there's one item). This puts it permanently in
+    /// reach.
+    ///
+    /// Only shown once the room has actually loaded -- floating a scan
+    /// button over a spinner or an error state offers an action that can't
+    /// work yet.
+    /// Deliberately identical in shape to `HomeView.addRoomButton` -- same
+    /// 58pt circle, same accent fill, same corner and padding -- so the
+    /// primary action sits in the same place and reads the same way one
+    /// level down. Only the glyph differs.
+    @ViewBuilder
+    private var scanButton: some View {
+        if case .loaded(let content) = viewModel.state {
+            Button {
+                coordinator.push(.scanRoom(roomID: content.room.id))
+            } label: {
+                Image(systemName: "camera.viewfinder")
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 58, height: 58)
+                    .background(AppColor.accent, in: Circle())
+                    .appCardShadow()
+            }
+            .accessibilityLabel("Scan room")
+            .padding(.trailing, 20)
+            .padding(.bottom, 16)
+        }
     }
 
     @ViewBuilder
@@ -122,7 +156,11 @@ struct RoomDetailView: View {
             }
             .padding(.horizontal, 20)
             .padding(.top, 16)
-            .padding(.bottom, 32)
+            // Clearance for the floating scan button so the last row of
+            // items can be scrolled clear of it. Only the trailing column
+            // is actually covered, but padding the whole scroll view is
+            // simpler than special-casing one grid cell.
+            .padding(.bottom, 88)
         }
     }
 
