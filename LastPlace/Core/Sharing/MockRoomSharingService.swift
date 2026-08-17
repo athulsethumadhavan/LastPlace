@@ -14,6 +14,7 @@ final class MockRoomSharingService: RoomSharingService, @unchecked Sendable {
     var incoming: [RoomShare] = []
     var profiles: [UUID: SharingProfile] = [:]
     var sharedRoomDetails: [UUID: (room: Room, items: [StoredItem])] = [:]
+    var historyByItem: [UUID: [SharedItemHistoryEntry]] = [:]
     var currentUserID: UUID = UUID()
 
     func inviteToRoom(roomID: UUID, inviteeEmail: String) async throws -> RoomShare {
@@ -61,6 +62,36 @@ final class MockRoomSharingService: RoomSharingService, @unchecked Sendable {
             throw RoomSharingError.fetchFailed(underlying: "No preview data for this shared room.")
         }
         return detail
+    }
+
+    func sharedItemHistory(itemID: UUID) async throws -> [SharedItemHistoryEntry] {
+        historyByItem[itemID] ?? []
+    }
+
+    /// Mirrors what the real RPC does to the caller's view of the world:
+    /// the item's location and `lastSeenAt` change, a history entry appears
+    /// attributed to the current user, and nothing else moves. Notably it
+    /// does *not* touch name/notes/category/importance — a preview that
+    /// allowed more than the database does would hide the very mistake this
+    /// mock exists to catch.
+    func updateSharedItemLocation(itemID: UUID, description: String) async throws {
+        let trimmed = description.trimmingCharacters(in: .whitespacesAndNewlines)
+        for (roomID, detail) in sharedRoomDetails {
+            guard let index = detail.items.firstIndex(where: { $0.id == itemID }) else { continue }
+            var items = detail.items
+            items[index].locationDescription = trimmed
+            items[index].lastSeenAt = Date()
+            sharedRoomDetails[roomID] = (room: detail.room, items: items)
+        }
+        historyByItem[itemID, default: []].insert(
+            SharedItemHistoryEntry(
+                id: UUID(),
+                locationDescription: trimmed,
+                capturedAt: Date(),
+                setBy: profiles[currentUserID]
+            ),
+            at: 0
+        )
     }
 
     func loadSharedImageData(path: String, ownerID: UUID) async throws -> Data {

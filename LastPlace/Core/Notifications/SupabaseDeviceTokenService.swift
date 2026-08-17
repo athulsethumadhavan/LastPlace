@@ -5,13 +5,21 @@
 //  Concrete DeviceTokenService backed by the `device_tokens` table from the
 //  `add_device_tokens_and_item_update_notify_trigger` migration.
 //
+//  Registration goes through the `register_device_token` RPC rather than a
+//  direct upsert. An FCM token identifies an *install*, not a person, and
+//  Firebase hands back the same one when a second account signs in on a
+//  device that already registered. A direct upsert conflicts on the unique
+//  `token` column, which makes it an UPDATE, which makes RLS evaluate
+//  `device_tokens_owner_all`'s USING clause against the row still owned by
+//  the *previous* account -- 42501, on every launch, permanently. The
+//  device then silently never receives another push. The RPC is
+//  SECURITY DEFINER so it can reassign the token, and always keys the row
+//  to `auth.uid()` rather than anything the caller supplies.
+//
 //  VERIFY-BEFORE-TRUST: written without a compiler available in this
-//  session, same caveat as the other Supabase-backed services. `onConflict:`
-//  on `.upsert(_:onConflict:)` is the documented postgrest-swift shape for
-//  resolving on a column other than the primary key -- needed here since
-//  `device_tokens` is conflict-checked on `token` (unique), not `id` (which
-//  this never sends, letting Postgres generate a fresh one only on first
-//  insert). Confirm this compiles as written before trusting it.
+//  session, same caveat as the other Supabase-backed services. The
+//  `.rpc(_:params:)` shape matches the existing calls in
+//  `SupabaseRoomSharingService` / `SupabaseItemGiftingService`.
 //
 
 import Foundation
@@ -25,14 +33,17 @@ final class SupabaseDeviceTokenService: DeviceTokenService {
     }
 
     func registerToken(_ token: String, platform: String) async throws {
-        guard let userID = await currentUserID() else { throw DeviceTokenError.notAuthenticated }
+        // The RPC raises 42501 on a null `auth.uid()` anyway; checking here
+        // first turns "some opaque Postgres error" into the specific case
+        // `MainTabView` needs to distinguish -- a token arriving before
+        // sign-in is expected, not a failure worth logging.
+        guard await isAuthenticated() else { throw DeviceTokenError.notAuthenticated }
         do {
             try await client
-                .from("device_tokens")
-                .upsert(
-                    DeviceTokenRow(userID: userID, token: token, platform: platform),
-                    onConflict: "token"
-                )
+                .rpc("register_device_token", params: [
+                    "p_token": token,
+                    "p_platform": platform
+                ])
                 .execute()
         } catch {
             throw DeviceTokenError.registrationFailed(underlying: error.localizedDescription)
@@ -51,19 +62,7 @@ final class SupabaseDeviceTokenService: DeviceTokenService {
         }
     }
 
-    private func currentUserID() async -> UUID? {
-        (try? await client.auth.session)?.user.id
-    }
-}
-
-private struct DeviceTokenRow: Encodable, Sendable {
-    let userID: UUID
-    let token: String
-    let platform: String
-
-    enum CodingKeys: String, CodingKey {
-        case userID = "user_id"
-        case token
-        case platform
+    private func isAuthenticated() async -> Bool {
+        (try? await client.auth.session) != nil
     }
 }

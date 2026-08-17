@@ -58,6 +58,14 @@ final class MainTabCoordinator {
             selectedTab = .settings
             settingsCoordinator.popToRoot()
             settingsCoordinator.push(.gifts)
+        case .sharedRooms:
+            selectedTab = .settings
+            settingsCoordinator.popToRoot()
+            settingsCoordinator.push(.sharedRooms)
+        case .room(let roomID):
+            selectedTab = .home
+            homeCoordinator.popToRoot()
+            homeCoordinator.push(.roomDetail(roomID: roomID))
         }
     }
 }

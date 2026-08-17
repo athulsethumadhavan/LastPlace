@@ -128,6 +128,15 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
                 return .item(id: id)
             }
             return .gifts
+        case "room":
+            if let idString = userInfo["room_id"] as? String, let id = UUID(uuidString: idString) {
+                return .room(id: id)
+            }
+            // No usable id -- Home at least lands somewhere with the room
+            // in it, rather than a screen that can't show anything.
+            return .sharedRooms
+        case "shared_rooms":
+            return .sharedRooms
         case "gifts":
             return .gifts
         default:

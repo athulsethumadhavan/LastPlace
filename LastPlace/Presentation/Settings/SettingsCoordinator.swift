@@ -112,6 +112,21 @@ final class SettingsCoordinator {
         )
     }
 
+    private func makeSharedItemDetailViewModel(
+        itemID: UUID,
+        roomID: UUID,
+        ownerID: UUID
+    ) -> SharedItemDetailViewModel {
+        SharedItemDetailViewModel(
+            itemID: itemID,
+            roomID: roomID,
+            ownerID: ownerID,
+            roomSharingService: container.roomSharingService,
+            authService: container.authService,
+            logger: container.logger
+        )
+    }
+
     private func makeGiftsViewModel() -> GiftsViewModel {
         GiftsViewModel(
             itemGiftingService: container.itemGiftingService,
@@ -143,9 +158,26 @@ final class SettingsCoordinator {
         case .sharedRooms:
             SharedRoomsView(coordinator: self, viewModel: makeSharedRoomsViewModel())
         case .sharedRoomDetail(let roomID, let ownerID):
-            SharedRoomDetailView(viewModel: makeSharedRoomDetailViewModel(roomID: roomID, ownerID: ownerID))
+            SharedRoomDetailView(
+                navigator: self,
+                viewModel: makeSharedRoomDetailViewModel(roomID: roomID, ownerID: ownerID)
+            )
+        case .sharedItemDetail(let itemID, let roomID, let ownerID):
+            SharedItemDetailView(
+                viewModel: makeSharedItemDetailViewModel(
+                    itemID: itemID,
+                    roomID: roomID,
+                    ownerID: ownerID
+                )
+            )
         case .gifts:
             GiftsView(viewModel: makeGiftsViewModel())
         }
+    }
+}
+
+extension SettingsCoordinator: SharedRoomNavigator {
+    func pushSharedItemDetail(itemID: UUID, roomID: UUID, ownerID: UUID) {
+        push(.sharedItemDetail(itemID: itemID, roomID: roomID, ownerID: ownerID))
     }
 }

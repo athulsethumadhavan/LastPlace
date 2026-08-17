@@ -16,5 +16,9 @@ enum SettingsRoute: Hashable {
     case dataManagement
     case sharedRooms
     case sharedRoomDetail(roomID: UUID, ownerID: UUID)
+    /// An item inside a shared room. Mirrors `HomeRoute.sharedItemDetail` --
+    /// shared rooms are reachable from either tab, so both stacks need the
+    /// route.
+    case sharedItemDetail(itemID: UUID, roomID: UUID, ownerID: UUID)
     case gifts
 }

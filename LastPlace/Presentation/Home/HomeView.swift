@@ -121,6 +121,9 @@ struct HomeView: View {
                     itemsSection(title: "Recently updated", items: content.recentItems)
                 }
                 roomsSection(content.rooms)
+                if !content.sharedRooms.isEmpty {
+                    sharedRoomsSection(content.sharedRooms)
+                }
             }
             .padding(.top, 16)
             // Native `TabView` already reserves safe-area space for its own
@@ -189,5 +192,52 @@ struct HomeView: View {
                 .padding(.horizontal, 20)
             }
         }
+    }
+
+    /// Rooms other people own and have shared with this user.
+    ///
+    /// Kept as its own section below "Rooms" rather than merged into that
+    /// grid. A shared room is read-only, so the owner-only affordances a
+    /// room card implies -- scan into it, rename it, delete it, share it on
+    /// -- would all have to be suppressed per-card, and the visible room
+    /// count would stop meaning "rooms I own". Separating them keeps one
+    /// grid honest and lets this one carry the attribution that makes the
+    /// distinction obvious.
+    ///
+    /// Rendered only when non-empty (see the call site): an empty state
+    /// here would advertise a feature to everyone who has never been
+    /// shared anything, on the app's most-used screen.
+    private func sharedRoomsSection(_ sharedRooms: [HomeSharedRoom]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader("Shared with you")
+                .padding(.horizontal, 20)
+
+            LazyVGrid(
+                columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)],
+                spacing: 12
+            ) {
+                ForEach(sharedRooms) { shared in
+                    VStack(alignment: .leading, spacing: 6) {
+                        RoomCard(room: shared.room) {
+                            coordinator.push(
+                                .sharedRoomDetail(roomID: shared.room.id, ownerID: shared.ownerID)
+                            )
+                        }
+                        // Attribution sits outside the card, not inside it,
+                        // so `RoomCard` stays the same component used for
+                        // your own rooms -- the ownership difference is
+                        // carried by this line and the section it's under,
+                        // not by a second variant of the card to maintain.
+                        Text("Shared by \(shared.ownerLabel ?? "a LastPlace user")")
+                            .font(AppFont.body(11.5))
+                            .foregroundStyle(AppColor.textSecondary)
+                            .lineLimit(1)
+                            .padding(.leading, 4)
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+        }
+        .padding(.top, 4)
     }
 }

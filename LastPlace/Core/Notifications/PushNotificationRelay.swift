@@ -32,6 +32,14 @@ enum PushNotificationDestination: Sendable, Equatable {
     /// The Gifts screen -- sent for `gift_received` (no item exists on this
     /// device yet, only a pending gift to accept) and `gift_accepted`.
     case gifts
+    /// The Shared Rooms screen -- sent for `share_received`, where the
+    /// invite is still pending so the room itself can't be opened yet.
+    case sharedRooms
+    /// One of this account's own rooms. Sent for the owner-side share
+    /// events (accepted / declined / left), which are about a room the
+    /// notified person owns -- Shared Rooms would be the wrong place, since
+    /// it only lists rooms shared *with* you.
+    case room(id: UUID)
 }
 
 @MainActor

@@ -166,8 +166,27 @@ struct MainTabView: View {
         // the first, since `MessagingDelegate` fires again on token
         // rotation and re-registering is just an upsert either way (see
         // `SupabaseDeviceTokenService.registerToken`).
+        //
+        // Deliberately not `try?`. Registration failing is invisible by
+        // nature -- there's no UI for it, and the only symptom is that
+        // pushes silently stop arriving forever. A stale `device_tokens`
+        // row from a previously signed-in account on this same install hid
+        // exactly that failure for a full testing round: the RLS USING
+        // check ran against the old owner's row and returned 42501 on
+        // every launch, swallowed here. Logging it is the only way this
+        // surfaces.
         PushNotificationRelay.shared.onFCMTokenReceived = { token in
-            Task { try? await container.deviceTokenService.registerToken(token, platform: "ios") }
+            Task {
+                do {
+                    try await container.deviceTokenService.registerToken(token, platform: "ios")
+                } catch {
+                    container.logger.error(
+                        "Registering push token failed; this device will not receive notifications",
+                        error: error,
+                        category: "push"
+                    )
+                }
+            }
         }
         PushNotificationRelay.shared.flushPending()
 
