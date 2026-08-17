@@ -22,9 +22,17 @@ struct AuthView: View {
         case fullName, email, password, confirmPassword
     }
 
-    init(authService: AuthService, onAuthenticated: @escaping @MainActor (AuthUser) -> Void) {
+    init(
+        authService: AuthService,
+        analytics: AnalyticsService,
+        onAuthenticated: @escaping @MainActor (AuthUser) -> Void
+    ) {
         self.authService = authService
-        _viewModel = State(initialValue: AuthViewModel(authService: authService, onAuthenticated: onAuthenticated))
+        _viewModel = State(initialValue: AuthViewModel(
+            authService: authService,
+            analytics: analytics,
+            onAuthenticated: onAuthenticated
+        ))
     }
 
     var body: some View {
@@ -95,12 +103,6 @@ struct AuthView: View {
                     }
                 }
 
-                if let errorMessage = viewModel.errorMessage {
-                    Text(errorMessage)
-                        .font(AppFont.body(13.5))
-                        .foregroundStyle(.red)
-                }
-
                 PrimaryButton(
                     viewModel.mode.primaryButtonTitle,
                     isEnabled: viewModel.canSubmit,
@@ -131,6 +133,15 @@ struct AuthView: View {
         }
         .background(AppColor.background)
         .scrollDismissesKeyboard(.interactively)
+        .alert(
+            "Something went wrong",
+            isPresented: Binding(
+                get: { viewModel.errorMessage != nil },
+                set: { if !$0 { viewModel.errorMessage = nil } }
+            ),
+            actions: { Button("OK", role: .cancel) { viewModel.errorMessage = nil } },
+            message: { Text(viewModel.errorMessage ?? "") }
+        )
         .sheet(isPresented: $showingForgotPassword) {
             ForgotPasswordView(authService: authService, prefillEmail: viewModel.email)
         }
@@ -253,5 +264,5 @@ struct AuthView: View {
 }
 
 #Preview {
-    AuthView(authService: MockAuthService()) { _ in }
+    AuthView(authService: MockAuthService(), analytics: MockAnalyticsService()) { _ in }
 }

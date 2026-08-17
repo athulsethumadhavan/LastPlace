@@ -10,9 +10,17 @@ struct MainTabView: View {
     let container: AppDependencyContainer
     @State private var coordinator: MainTabCoordinator
 
-    init(container: AppDependencyContainer, onSignedOut: @escaping () -> Void) {
+    init(
+        container: AppDependencyContainer,
+        appCoordinator: AppCoordinator,
+        onSignedOut: @escaping () -> Void
+    ) {
         self.container = container
-        _coordinator = State(initialValue: MainTabView.makeCoordinator(container: container, onSignedOut: onSignedOut))
+        _coordinator = State(initialValue: MainTabView.makeCoordinator(
+            container: container,
+            appCoordinator: appCoordinator,
+            onSignedOut: onSignedOut
+        ))
         MainTabView.configureTabBarAppearance()
     }
 
@@ -95,7 +103,11 @@ struct MainTabView: View {
     }
 
     @MainActor
-    private static func makeCoordinator(container: AppDependencyContainer, onSignedOut: @escaping () -> Void) -> MainTabCoordinator {
+    private static func makeCoordinator(
+        container: AppDependencyContainer,
+        appCoordinator: AppCoordinator,
+        onSignedOut: @escaping () -> Void
+    ) -> MainTabCoordinator {
         let homeCoordinator = HomeCoordinator(container: container)
         let searchCoordinator = SearchCoordinator(container: container)
         let checklistCoordinator = ChecklistCoordinator(container: container)
@@ -112,6 +124,17 @@ struct MainTabView: View {
                 Task { await searchCoordinator.searchViewModel.refresh() }
             }
         }
+        // Accepting a gift in Settings writes the new item straight to
+        // local storage (see `GiftsViewModel.accept`), but neither Home nor
+        // Search has a way to know that happened on its own -- same
+        // cross-tab-notification rationale as `onAllDataDeleted` above,
+        // just for one item instead of everything.
+        settingsCoordinator.onGiftAccepted = { [weak homeCoordinator, weak searchCoordinator] in
+            homeCoordinator?.refreshHome()
+            if let searchCoordinator {
+                Task { await searchCoordinator.searchViewModel.refresh() }
+            }
+        }
         // Signing out (or deleting the account) in Settings needs to send
         // the whole app back through `AppCoordinator`'s `.authRequired`
         // gate, not just pop the Settings navigation stack -- this tab
@@ -119,11 +142,62 @@ struct MainTabView: View {
         // `RootView` hands the callback down through here instead.
         settingsCoordinator.onSignedOut = onSignedOut
 
-        return MainTabCoordinator(
+        let coordinator = MainTabCoordinator(
             homeCoordinator: homeCoordinator,
             searchCoordinator: searchCoordinator,
             checklistCoordinator: checklistCoordinator,
             settingsCoordinator: settingsCoordinator
         )
+
+        // Tapping a push notification (see `AppDelegate`'s
+        // `UNUserNotificationCenterDelegate` conformance) deep-links here
+        // once this coordinator exists. `flushPending()` replays a tap that
+        // arrived before this point -- a cold launch from a notification,
+        // or one that arrived while locked/signed-out and this whole tab
+        // structure didn't exist yet.
+        PushNotificationRelay.shared.onNotificationTapped = { [weak coordinator] destination in
+            coordinator?.open(destination)
+        }
+        // `container` is the single instance `AppBootstrap` builds once for
+        // the app's whole lifetime (see `LastPlaceApp.swift`), so capturing
+        // it strongly here -- rather than weakly, like the coordinators
+        // above -- can't leak: there's never a second one to leave this
+        // pointing at a stale container. Registers on every call, not just
+        // the first, since `MessagingDelegate` fires again on token
+        // rotation and re-registering is just an upsert either way (see
+        // `SupabaseDeviceTokenService.registerToken`).
+        //
+        // Deliberately not `try?`. Registration failing is invisible by
+        // nature -- there's no UI for it, and the only symptom is that
+        // pushes silently stop arriving forever. A stale `device_tokens`
+        // row from a previously signed-in account on this same install hid
+        // exactly that failure for a full testing round: the RLS USING
+        // check ran against the old owner's row and returned 42501 on
+        // every launch, swallowed here. Logging it is the only way this
+        // surfaces.
+        PushNotificationRelay.shared.onFCMTokenReceived = { token in
+            Task {
+                do {
+                    try await container.deviceTokenService.registerToken(token, platform: "ios")
+                } catch {
+                    container.logger.error(
+                        "Registering push token failed; this device will not receive notifications",
+                        error: error,
+                        category: "push"
+                    )
+                }
+            }
+        }
+        PushNotificationRelay.shared.flushPending()
+
+        // Fired after a sync that followed a local wipe. These tabs mounted
+        // against a deliberately-emptied store (see
+        // `AppCoordinator.completeSignIn`), so without this they'd stay
+        // empty until the person navigated away and back.
+        appCoordinator.onLocalDataReplaced = { [weak coordinator] in
+            coordinator?.refreshAllTabs()
+        }
+
+        return coordinator
     }
 }

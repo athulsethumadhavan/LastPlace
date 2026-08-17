@@ -19,6 +19,12 @@ struct StoredItem: Identifiable, Hashable, Sendable {
     var createdAt: Date
     var updatedAt: Date
     var isImportant: Bool
+    /// Set only on an item created via `ItemGiftingService.acceptGift` --
+    /// the sending account's user id, a soft breadcrumb with no FK-level
+    /// enforcement on this side (Postgres does enforce it, via
+    /// `items.origin_shared_by references auth.users`). Needed for Phase 6's
+    /// push notifications to know who to notify when this item updates.
+    var originSharedBy: UUID?
 
     init(
         id: UUID = UUID(),
@@ -31,7 +37,8 @@ struct StoredItem: Identifiable, Hashable, Sendable {
         lastSeenAt: Date = Date(),
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
-        isImportant: Bool = false
+        isImportant: Bool = false,
+        originSharedBy: UUID? = nil
     ) {
         self.id = id
         self.roomID = roomID
@@ -44,6 +51,7 @@ struct StoredItem: Identifiable, Hashable, Sendable {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.isImportant = isImportant
+        self.originSharedBy = originSharedBy
     }
 }
 

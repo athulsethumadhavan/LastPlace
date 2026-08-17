@@ -52,6 +52,10 @@ import WidgetKit
 @ModelActor
 actor SyncEngine {
     private var client: SupabaseClient { SupabaseClientProvider.shared }
+    /// Computed rather than stored, same reason as `client` and as noted in
+    /// `ImageUploadTracker`: extra stored properties on a `@ModelActor` mean
+    /// hand-writing the init the macro would otherwise generate.
+    private var logger: AppLogger { OSAppLogger() }
 
     /// Runs a full push-then-pull pass for every table, for the given
     /// signed-in user. Throws on the first failure rather than attempting
@@ -60,6 +64,20 @@ actor SyncEngine {
     /// for every table after it anyway, so there's nothing to gain from
     /// pressing on.
     func sync(userID: UUID, imageStorage: ImageStorageService) async throws {
+        // Guard lives here rather than at the call sites because there are
+        // now several of them -- `RootView` on launch/foreground,
+        // `AppCoordinator` on sign-in, and three view models that flush
+        // before calling a server-side RPC -- and `RootView` fires its
+        // sync concurrently with `AppCoordinator.start()`, so a call-site
+        // check could simply lose the race. Getting this wrong doesn't
+        // just show stale data: the local entities carry no user id, so
+        // pushing another account's `.pendingUpsert` rows would stamp them
+        // with *this* user's id and move that person's data into this
+        // account. Making it a precondition of syncing at all means no
+        // future caller can forget it.
+        await wipeLocalDataIfAccountChanged(userID: userID, imageStorage: imageStorage)
+        LastSignedInUserStore.set(userID)
+
         try await pushHomes(userID: userID)
         try await pushRooms(userID: userID)
         try await pushItems(userID: userID)
@@ -79,8 +97,111 @@ actor SyncEngine {
         // both directions above, so this is looking at the final,
         // authoritative set of paths that ought to have a photo somewhere.
         let referencedPaths = try collectReferencedImagePaths()
-        try await pushPendingImages(userID: userID, imageStorage: imageStorage, paths: referencedPaths)
-        try await pullMissingImages(userID: userID, imageStorage: imageStorage, paths: referencedPaths)
+        await pushPendingImages(userID: userID, imageStorage: imageStorage, paths: referencedPaths)
+        await pullMissingImages(userID: userID, imageStorage: imageStorage, paths: referencedPaths)
+
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    /// Wipes the local store if it holds data belonging to a different
+    /// account. Idempotent, so it's safe for both `sync` and
+    /// `AppCoordinator` to call.
+    ///
+    /// The interesting case is when `LastSignedInUserStore` has no recorded
+    /// owner, which is ambiguous in two directions:
+    ///
+    /// - Data created *before accounts existed* (roadmap Phase 2's
+    ///   migration path). It belongs to whoever is signing in now and must
+    ///   be kept, so their first sync uploads it.
+    /// - A previous account's data from before this tracking was added.
+    ///   It belongs to someone else and must go.
+    ///
+    /// `SyncStatus` tells them apart. Pre-account rows are all
+    /// `.pendingUpsert` -- the lightweight migration that added the column
+    /// defaulted them that way and nothing has pushed them. A `.synced` row
+    /// can only exist because some signed-in account already uploaded it.
+    /// So the presence of any `.synced` row means the store has a previous
+    /// owner, even though we never recorded who.
+    ///
+    /// Without this second test the very first account switch after
+    /// shipping the tracking silently skips the wipe -- which is exactly
+    /// what happened in testing.
+    func wipeLocalDataIfAccountChanged(userID: UUID, imageStorage: ImageStorageService) async {
+        let recordedOwner = LastSignedInUserStore.userID
+
+        let belongsToAnotherAccount: Bool
+        if let recordedOwner {
+            belongsToAnotherAccount = recordedOwner != userID
+        } else {
+            belongsToAnotherAccount = hasRowsFromAPreviousAccount()
+        }
+
+        guard belongsToAnotherAccount else { return }
+        await wipeLocalData(imageStorage: imageStorage)
+    }
+
+    /// True if any local row has already been synced by *some* account.
+    /// Only meaningful when no owner is recorded -- see
+    /// `wipeLocalDataIfAccountChanged`.
+    private func hasRowsFromAPreviousAccount() -> Bool {
+        let synced = SyncStatus.synced.rawValue
+
+        // Homes and rooms are enough: an account with any synced data at
+        // all has at least a home, since `fetchDefaultHome` creates one and
+        // every room and item hangs off it. Checking two small tables
+        // avoids fetching every item on a large store just to answer a
+        // yes/no question.
+        var homeDescriptor = FetchDescriptor<HomeEntity>(
+            predicate: #Predicate { $0.syncStatusRaw == synced }
+        )
+        homeDescriptor.fetchLimit = 1
+        if let count = try? modelContext.fetch(homeDescriptor).count, count > 0 { return true }
+
+        var roomDescriptor = FetchDescriptor<RoomEntity>(
+            predicate: #Predicate { $0.syncStatusRaw == synced }
+        )
+        roomDescriptor.fetchLimit = 1
+        if let count = try? modelContext.fetch(roomDescriptor).count, count > 0 { return true }
+
+        return false
+    }
+
+    /// Hard-deletes everything in the local store, for use when a different
+    /// account signs in on this device.
+    ///
+    /// Deliberately bypasses the repositories and their `SyncStatus`
+    /// bookkeeping. `SwiftData*Repository.delete` marks rows
+    /// `.pendingDelete` so the next sync can delete them server-side --
+    /// which is exactly wrong here. These rows belong to the *previous*
+    /// account, and tombstoning them would make the new user's first sync
+    /// issue deletes against the previous user's rows in Postgres,
+    /// destroying their data. `modelContext.delete` removes the row
+    /// outright, leaving nothing to propagate.
+    ///
+    /// Local image files go too: they're referenced by paths that are about
+    /// to disappear, so leaving them behind just leaks disk space and the
+    /// previous account's photos.
+    func wipeLocalData(imageStorage: ImageStorageService) async {
+        // Collect image paths before deleting the rows that reference them.
+        let paths = (try? collectReferencedImagePaths()) ?? []
+
+        do {
+            try modelContext.delete(model: ChecklistEntryEntity.self)
+            try modelContext.delete(model: ChecklistEntity.self)
+            try modelContext.delete(model: ItemSnapshotEntity.self)
+            try modelContext.delete(model: ScanSessionEntity.self)
+            try modelContext.delete(model: StoredItemEntity.self)
+            try modelContext.delete(model: RoomEntity.self)
+            try modelContext.delete(model: HomeEntity.self)
+            try modelContext.save()
+        } catch {
+            logger.error("Local wipe failed", error: error, category: "sync")
+        }
+
+        for path in paths {
+            try? await imageStorage.deleteImage(at: path)
+        }
+        ImageUploadTracker.clear()
 
         WidgetCenter.shared.reloadAllTimelines()
     }
@@ -159,7 +280,8 @@ actor SyncEngine {
                     id: entity.id, userID: userID, roomID: entity.roomID, name: entity.name,
                     category: entity.categoryRaw, notes: entity.notes, imagePath: entity.imagePath,
                     locationDescription: entity.locationDescription, lastSeenAt: entity.lastSeenAt,
-                    createdAt: entity.createdAt, updatedAt: entity.updatedAt, isImportant: entity.isImportant
+                    createdAt: entity.createdAt, updatedAt: entity.updatedAt, isImportant: entity.isImportant,
+                    originSharedBy: entity.originSharedBy
                 )
             }
             try await client.from("items").upsert(rows).execute()
@@ -367,13 +489,15 @@ actor SyncEngine {
                 local.lastSeenAt = row.lastSeenAt
                 local.updatedAt = row.updatedAt
                 local.isImportant = row.isImportant
+                // Not `originSharedBy` -- same "set once at creation, never
+                // reassigned" rule as `StoredItemMapper.apply`.
                 local.room = roomsByID[row.roomID]
             } else {
                 let entity = StoredItemEntity(
                     id: row.id, roomID: row.roomID, name: row.name, categoryRaw: row.category,
                     notes: row.notes, imagePath: row.imagePath, locationDescription: row.locationDescription,
                     lastSeenAt: row.lastSeenAt, createdAt: row.createdAt, updatedAt: row.updatedAt,
-                    isImportant: row.isImportant, syncStatusRaw: syncedStatus
+                    isImportant: row.isImportant, originSharedBy: row.originSharedBy, syncStatusRaw: syncedStatus
                 )
                 entity.room = roomsByID[row.roomID]
                 modelContext.insert(entity)
@@ -524,17 +648,37 @@ actor SyncEngine {
     /// either (rare -- would mean it was never captured successfully) is
     /// silently skipped here; `pullMissingImages` only tries to recover
     /// paths that might exist *remotely*, which an upload-less path can't.
-    private func pushPendingImages(userID: UUID, imageStorage: ImageStorageService, paths: Set<String>) async throws {
+    ///
+    /// Per-image failures are contained rather than thrown. The
+    /// throw-on-first-failure rule the rest of `sync` follows exists
+    /// because the tables have real foreign keys, so an early failure would
+    /// only cascade -- that reasoning doesn't apply to independent image
+    /// blobs, and letting one bad upload abort the pass had a nasty
+    /// consequence: it also skipped `pullMissingImages` and the widget
+    /// reload, and since `RootView.syncIfSignedIn` discards sync errors with
+    /// `try?`, the whole thing failed in complete silence. That's exactly
+    /// how the Storage-key casing bug (see `UUID+StorageFolder.swift`) went
+    /// unnoticed until it surfaced as a missing gift photo, several layers
+    /// downstream of the actual cause.
+    private func pushPendingImages(userID: UUID, imageStorage: ImageStorageService, paths: Set<String>) async {
         for path in paths {
             guard !ImageUploadTracker.isUploaded(path) else { continue }
             guard await imageStorage.imageExists(at: path) else { continue }
-            let data = try await imageStorage.loadImageData(from: path)
-            try await client.storage.from("item-images").upload(
-                "\(userID)/\(path)",
-                data: data,
-                options: FileOptions(contentType: "image/jpeg", upsert: true)
-            )
-            ImageUploadTracker.markUploaded(path)
+            guard let data = try? await imageStorage.loadImageData(from: path) else { continue }
+            do {
+                // `userID.storageKey(for:)`, never "\(userID)/\(path)" -- see
+                // `UUID+StorageFolder.swift` for why raw interpolation makes
+                // every Storage request fail RLS.
+                try await client.storage.from("item-images").upload(
+                    userID.storageKey(for: path),
+                    data: data,
+                    options: FileOptions(contentType: "image/jpeg", upsert: true)
+                )
+                ImageUploadTracker.markUploaded(path)
+            } catch {
+                // Left unmarked, so the next sync retries it.
+                logger.error("Image upload failed", error: error, category: "sync")
+            }
         }
     }
 
@@ -544,10 +688,11 @@ actor SyncEngine {
     /// local disk. Best-effort: a path that was never actually uploaded
     /// (e.g. the user deleted the app before their first sync ever ran)
     /// simply fails the download and is left missing, same as today.
-    private func pullMissingImages(userID: UUID, imageStorage: ImageStorageService, paths: Set<String>) async throws {
+    private func pullMissingImages(userID: UUID, imageStorage: ImageStorageService, paths: Set<String>) async {
         for path in paths {
             guard await imageStorage.imageExists(at: path) == false else { continue }
-            guard let data = try? await client.storage.from("item-images").download(path: "\(userID)/\(path)") else {
+            guard let data = try? await client.storage.from("item-images")
+                .download(path: userID.storageKey(for: path)) else {
                 continue
             }
             try? await imageStorage.restoreImageData(data, at: path)

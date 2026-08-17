@@ -170,13 +170,26 @@ struct ScanSaveItemView: View {
         .padding(.top, 8)
     }
 
+    /// Saves the item and leaves the scan flow entirely, landing back on the
+    /// room.
+    ///
+    /// Previously this returned to the review screen, which left the person
+    /// staring at the photo they'd just dealt with and needing a second,
+    /// non-obvious action ("Done") to actually finish. Saving an item is the
+    /// point of the whole flow, so it ends it.
+    ///
+    /// `completeSession` is what marks the scan finished and stops the
+    /// camera -- popping without it would leave the session dangling. It's
+    /// awaited before popping so a failure keeps the person on this screen
+    /// with the error, rather than silently dismissing.
     private func saveTapped() {
         Task {
-            if let _ = await viewModel.save() {
-                homeCoordinator.refreshRoomDetail()
-                homeCoordinator.refreshHome()
-                coordinator.goToReview()
-            }
+            guard await viewModel.save() != nil else { return }
+            coordinator.recordItemSaved()
+            _ = await coordinator.completeSession()
+            homeCoordinator.popLast()
+            homeCoordinator.refreshRoomDetail()
+            homeCoordinator.refreshHome()
         }
     }
 }

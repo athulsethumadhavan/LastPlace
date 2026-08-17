@@ -33,11 +33,19 @@ final class AccountViewModel {
     var errorMessage: String?
 
     private let authService: AuthService
+    /// Only used by `signOut()`, to drop this device's push token before
+    /// the session goes away -- see that method's doc comment.
+    private let deviceTokenService: DeviceTokenService
     private let onSignedOut: @MainActor () -> Void
     private let observationTaskBox = TaskBox()
 
-    init(authService: AuthService, onSignedOut: @escaping @MainActor () -> Void) {
+    init(
+        authService: AuthService,
+        deviceTokenService: DeviceTokenService,
+        onSignedOut: @escaping @MainActor () -> Void
+    ) {
         self.authService = authService
+        self.deviceTokenService = deviceTokenService
         self.onSignedOut = onSignedOut
         // `authService` is captured by value (not via `self`) so this task
         // never holds a strong reference back to `self` -- otherwise the
@@ -56,11 +64,32 @@ final class AccountViewModel {
         observationTaskBox.cancel()
     }
 
+    /// Drops this device's push token *before* ending the session, not
+    /// after: the `device_tokens` delete is RLS-scoped to `auth.uid()`, so
+    /// once the session is gone the row can no longer be deleted by this
+    /// client at all. Without this, signing out on a shared device leaves
+    /// the row behind and the next person to use it keeps receiving the
+    /// previous account's notifications.
+    ///
+    /// Best-effort (`try?`): a failed unregister shouldn't block the
+    /// sign-out the person actually asked for. Worst case the row lingers
+    /// until that token is reissued to another account, at which point the
+    /// `token`-unique upsert in `registerToken` reassigns it.
     func signOut() {
         isLoading = true
         errorMessage = nil
         Task {
             defer { isLoading = false }
+            // Deletes the server-side row but deliberately keeps the relay's
+            // retained copy: an FCM token identifies this *install*, not the
+            // account, and Firebase won't hand it over again unless it
+            // actually rotates. Discarding it here would leave the next
+            // sign-in with nothing to register, silently making that account
+            // unreachable by push -- see
+            // `AppCoordinator.registerPushTokenIfAvailable`.
+            if let token = PushNotificationRelay.shared.currentFCMToken {
+                try? await deviceTokenService.unregisterToken(token)
+            }
             do {
                 try await authService.signOut()
                 onSignedOut()
@@ -70,6 +99,12 @@ final class AccountViewModel {
         }
     }
 
+    /// No explicit token cleanup needed here, unlike `signOut()`:
+    /// `device_tokens.user_id` is declared `references auth.users(id) on
+    /// delete cascade`, so deleting the account takes every one of that
+    /// user's token rows with it server-side -- including rows belonging to
+    /// their *other* devices, which a client-side delete couldn't reach
+    /// anyway.
     func deleteAccount() {
         isLoading = true
         errorMessage = nil

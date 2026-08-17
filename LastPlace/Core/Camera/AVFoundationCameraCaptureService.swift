@@ -20,6 +20,18 @@ final class AVFoundationCameraCaptureService: NSObject, CameraCaptureService {
     private var device: AVCaptureDevice?
     private var isConfigured = false
     private var captureContinuation: CheckedContinuation<Data, Error>?
+    /// Tracks the device's physical orientation relative to gravity, so a
+    /// capture can be rotated to be horizon-level.
+    ///
+    /// Without this, the photo output connection stays at its default --
+    /// the camera sensor's native *landscape* orientation -- no matter how
+    /// the phone is actually held. A photo taken upright then comes out
+    /// rotated 90°, which quietly wrecks every downstream consumer:
+    /// Vision's classifier and the AI namer both see a sideways image and
+    /// return confident nonsense, and the saved thumbnail is sideways too.
+    /// Apple's guidance is to use this coordinator rather than the
+    /// deprecated `videoOrientation`.
+    private var rotationCoordinator: AVCaptureDevice.RotationCoordinator?
 
     func prepare() async throws {
         let status = AVCaptureDevice.authorizationStatus(for: .video)
@@ -63,6 +75,15 @@ final class AVFoundationCameraCaptureService: NSObject, CameraCaptureService {
 
         let settings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.jpeg])
         settings.flashMode = .auto
+
+        // Applied per-capture rather than once at configuration time: the
+        // phone can be rotated between shots, and the coordinator's angle
+        // is only correct for *now*.
+        if let connection = photoOutput.connection(with: .video),
+           let angle = rotationCoordinator?.videoRotationAngleForHorizonLevelCapture,
+           connection.isVideoRotationAngleSupported(angle) {
+            connection.videoRotationAngle = angle
+        }
 
         return try await withCheckedThrowingContinuation { continuation in
             captureContinuation = continuation
@@ -116,6 +137,16 @@ final class AVFoundationCameraCaptureService: NSObject, CameraCaptureService {
             session.addInput(input)
             session.addOutput(photoOutput)
             session.commitConfiguration()
+
+            // `previewLayer: nil` -- this only drives capture rotation. The
+            // preview layer manages its own orientation via
+            // `AVCaptureVideoPreviewLayer`, and passing it here would make
+            // this coordinator try to rotate the preview too.
+            rotationCoordinator = AVCaptureDevice.RotationCoordinator(
+                device: device,
+                previewLayer: nil
+            )
+
             isConfigured = true
         } catch let error as CameraError {
             throw error

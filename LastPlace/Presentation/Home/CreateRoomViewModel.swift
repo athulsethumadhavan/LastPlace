@@ -16,15 +16,18 @@ final class CreateRoomViewModel {
 
     private let homeID: UUID
     private let createRoomUseCase: CreateRoomUseCase
+    private let analytics: AnalyticsService
     private let logger: AppLogger
 
     init(
         homeID: UUID,
         createRoom: CreateRoomUseCase,
+        analytics: AnalyticsService,
         logger: AppLogger
     ) {
         self.homeID = homeID
         self.createRoomUseCase = createRoom
+        self.analytics = analytics
         self.logger = logger
     }
 
@@ -43,6 +46,8 @@ final class CreateRoomViewModel {
             let room = try await createRoomUseCase.execute(
                 CreateRoomInput(homeID: homeID, name: name, iconName: iconName, coverImageData: nil)
             )
+            // No parameters -- the room name is user content.
+            analytics.log(.roomCreated)
             return room
         } catch {
             logger.error("Create room failed", error: error, category: "create-room")

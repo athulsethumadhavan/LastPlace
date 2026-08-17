@@ -31,4 +31,12 @@ enum ImageUploadTracker {
         uploaded.insert(path)
         defaults.set(Array(uploaded), forKey: key)
     }
+
+    /// Called when the local store is wiped for an account switch. The
+    /// tracked paths belong to the previous account's images, which no
+    /// longer exist locally -- leaving them behind would make the next
+    /// account's sync skip uploading a file that happened to reuse a path.
+    static func clear() {
+        defaults.removeObject(forKey: key)
+    }
 }

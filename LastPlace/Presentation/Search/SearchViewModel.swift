@@ -18,14 +18,16 @@ final class SearchViewModel {
     private(set) var state: LoadableState<SearchResults> = .idle
 
     private let searchItemsUseCase: SearchItemsUseCase
+    private let analytics: AnalyticsService
     private let logger: AppLogger
 
     /// How long to wait after the last keystroke before searching. Blank-query
     /// lookups (initial load, clearing the field) skip the delay entirely.
     private let debounceNanoseconds: UInt64 = 200_000_000
 
-    init(searchItems: SearchItemsUseCase, logger: AppLogger) {
+    init(searchItems: SearchItemsUseCase, analytics: AnalyticsService, logger: AppLogger) {
         self.searchItemsUseCase = searchItems
+        self.analytics = analytics
         self.logger = logger
     }
 
@@ -60,6 +62,14 @@ final class SearchViewModel {
         do {
             let results = try await searchItemsUseCase.execute(query: query)
             state = results.isEmpty ? .empty : .loaded(results)
+            // Only real searches -- `performSearch` also runs with a blank
+            // query on first appearance and on refresh, which isn't a
+            // search the person performed. `matches.count` only; the query
+            // text itself is never logged (it's user content, and often
+            // the name of something in their home).
+            if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                analytics.log(.searchPerformed(resultCount: results.matches.count))
+            }
         } catch {
             logger.error("Search failed", error: error, category: "search")
             state = .failed(UserFacingError.from(error))

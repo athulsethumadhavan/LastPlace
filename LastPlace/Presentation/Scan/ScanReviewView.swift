@@ -17,28 +17,36 @@ struct ScanReviewView: View {
     @State private var isConfirmingDiscard = false
 
     var body: some View {
-        Group {
-            if coordinator.captures.isEmpty {
-                EmptyStateView(
-                    title: "Nothing to review",
-                    message: "Capture at least one photo before reviewing.",
-                    symbolName: "camera",
-                    primaryAction: EmptyStateAction(title: "Back to camera") {
-                        coordinator.goToCapture()
-                    }
-                )
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 16) {
-                        ForEach(coordinator.captures) { capture in
-                            captureCard(capture)
+        VStack(spacing: 0) {
+            Group {
+                if coordinator.captures.isEmpty {
+                    EmptyStateView(
+                        title: "Nothing to review",
+                        message: "Capture at least one photo before reviewing.",
+                        symbolName: "camera",
+                        primaryAction: EmptyStateAction(title: "Back to camera") {
+                            coordinator.goToCapture()
                         }
+                    )
+                } else {
+                    ScrollView {
+                        LazyVStack(spacing: 16) {
+                            ForEach(coordinator.captures) { capture in
+                                captureCard(capture)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 16)
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 16)
                 }
             }
+            .frame(maxHeight: .infinity)
+
+            if coordinator.selectedDetection != nil {
+                proceedBar
+            }
         }
+        .animation(.easeInOut(duration: 0.2), value: coordinator.selectedDetection?.detection.id)
         .navigationTitle("Review scan")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
@@ -68,6 +76,10 @@ struct ScanReviewView: View {
             }
             .accessibilityLabel("Back to camera")
         }
+
+        // Finishing and discarding both moved up here when the bottom bar
+        // became the single Proceed action. Done ends the session keeping
+        // whatever was already saved; Discard throws the whole scan away.
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
                 Button {
@@ -79,22 +91,47 @@ struct ScanReviewView: View {
                         }
                     }
                 } label: {
-                    Label("Finish scan", systemImage: "checkmark")
+                    Label("Done", systemImage: "checkmark")
                 }
+
                 Button(role: .destructive) {
                     isConfirmingDiscard = true
                 } label: {
                     Label("Discard scan", systemImage: "trash")
                 }
             } label: {
-                if coordinator.isCompleting {
-                    ProgressView()
-                } else {
-                    Image(systemName: "ellipsis.circle")
-                }
+                Label("More", systemImage: "ellipsis.circle")
             }
-            .accessibilityLabel("Scan actions")
+            .disabled(coordinator.isCompleting)
         }
+    }
+
+    /// Replaces the previous always-visible Discard/Save pair.
+    ///
+    /// Tapping a detection used to navigate straight to the save form, which
+    /// made a single tap commit to a name with no way to reconsider. Now a
+    /// tap only highlights, and this appears to confirm — so the choice and
+    /// the commitment are two separate, reversible steps.
+    ///
+    /// Only rendered when something is selected, so the bar isn't sitting
+    /// there disabled while the person is still deciding. Discarding the
+    /// scan lives in the toolbar now; it's a rare, destructive action and
+    /// doesn't need permanent real estate next to the primary one.
+    private var proceedBar: some View {
+        Button {
+            guard let selection = coordinator.selectedDetection else { return }
+            coordinator.selectDetection(selection.detection, for: selection.captureID)
+        } label: {
+            Label("Proceed", systemImage: "arrow.right")
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
+        .background(.bar)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 
     private func captureCard(_ capture: ScanCoordinator.ScanCapture) -> some View {
@@ -128,6 +165,32 @@ struct ScanReviewView: View {
                 .buttonStyle(.bordered)
                 .controlSize(.small)
 
+                // Escape hatch for when recognition is confidently wrong,
+                // which happens most with several objects in frame -- the
+                // model picks one and there's no way to say "none of these".
+                // Goes to the same save form with an empty name, so the
+                // photo is kept and only the naming is manual.
+                //
+                // Always available, not just when nothing was detected:
+                // a wrong answer is exactly when you need this, and that's
+                // precisely the case where the empty-state button doesn't
+                // appear.
+                Button {
+                    coordinator.selectDetection(
+                        DetectedObject(
+                            label: "",
+                            confidence: 0,
+                            boundingBox: .init(x: 0, y: 0, width: 1, height: 1)
+                        ),
+                        for: capture.id
+                    )
+                } label: {
+                    Label("Add Manually", systemImage: "square.and.pencil")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(capture.isDetecting)
+
                 Spacer()
             }
         }
@@ -143,26 +206,30 @@ struct ScanReviewView: View {
                 Text("Detecting objects…").font(.footnote).foregroundStyle(.secondary)
             }
         } else if capture.detections.isEmpty {
-            Text("No objects recognized. You can still save this photo as an item manually.")
+            // No button here any more -- "Add Manually" below does exactly
+            // this and is always present, so a second one would just be two
+            // controls doing the same thing a few points apart.
+            Text("No objects recognized. Use Add Manually to save this photo as an item.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-            Button {
-                coordinator.selectDetection(
-                    DetectedObject(label: "", confidence: 0, boundingBox: .init(x: 0, y: 0, width: 1, height: 1)),
-                    for: capture.id
-                )
-            } label: {
-                Label("Save as item", systemImage: "plus.circle")
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
         } else {
-            SectionHeader("Detected objects")
+            SectionHeader(capture.detections.count == 1 ? "Detected object" : "Detected objects")
                 .padding(.top, 2)
+            // Only worth saying when there's an actual choice to make. With a
+            // single auto-selected result the instruction would be telling
+            // the person to do something that's already done.
+            if capture.detections.count > 1 {
+                Text("Tap the best match, then Proceed.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
             FlowLayout(spacing: 8) {
                 ForEach(capture.detections) { detection in
-                    DetectionChip(detection: detection) {
-                        coordinator.selectDetection(detection, for: capture.id)
+                    DetectionChip(
+                        detection: detection,
+                        isSelected: capture.selectedDetectionID == detection.id
+                    ) {
+                        coordinator.toggleSelection(detection.id, for: capture.id)
                     }
                 }
             }
@@ -172,23 +239,35 @@ struct ScanReviewView: View {
 
 private struct DetectionChip: View {
     let detection: DetectedObject
+    let isSelected: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 6) {
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.caption.weight(.semibold))
+                }
                 Text(detection.label)
                     .font(.subheadline.weight(.medium))
                 Text("\(Int(detection.confidence * 100))%")
                     .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .opacity(0.7)
             }
+            .foregroundStyle(isSelected ? Color.white : Color.primary)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(Color(.tertiarySystemGroupedBackground), in: Capsule())
+            .background(
+                isSelected ? AnyShapeStyle(AppColor.accent) : AnyShapeStyle(Color(.tertiarySystemGroupedBackground)),
+                in: Capsule()
+            )
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(detection.label), \(Int(detection.confidence * 100)) percent confidence, save as item")
+        // `isSelected` rather than a static description: a chip that toggles
+        // needs to announce its current state, not just what tapping does.
+        .accessibilityLabel("\(detection.label), \(Int(detection.confidence * 100)) percent confidence")
+        .accessibilityAddTraits(isSelected ? [.isSelected, .isButton] : .isButton)
     }
 }
 

@@ -44,12 +44,6 @@ struct OTPView: View {
 
                     codeBoxes
 
-                    if let errorMessage = viewModel.errorMessage {
-                        Text(errorMessage)
-                            .font(AppFont.body(13.5))
-                            .foregroundStyle(.red)
-                    }
-
                     PrimaryButton("Verify", isEnabled: viewModel.canSubmit, isLoading: viewModel.isLoading) {
                         isCodeFocused = false
                         viewModel.submit()
@@ -67,6 +61,24 @@ struct OTPView: View {
         .onChange(of: viewModel.code) { _, newValue in
             if newValue.count == 6 { viewModel.submit() }
         }
+        .alert(
+            "Something went wrong",
+            isPresented: Binding(
+                get: { viewModel.errorMessage != nil },
+                set: { if !$0 { viewModel.errorMessage = nil } }
+            ),
+            actions: {
+                // Clears the code as well as the error: a wrong code has to
+                // be replaced entirely, and leaving six stale digits behind
+                // means the person has to delete them before they can retry.
+                Button("OK", role: .cancel) {
+                    viewModel.errorMessage = nil
+                    viewModel.code = ""
+                    isCodeFocused = true
+                }
+            },
+            message: { Text(viewModel.errorMessage ?? "") }
+        )
     }
 
     private var iconBadge: some View {

@@ -3,35 +3,167 @@
 <plist version="1.0">
 <dict>
 	<!--
-	NOTE: this manifest predates the Supabase/Google Sign-In/Sign in with
-	Apple work and is now out of date -- the app sends account data (email,
-	user ID) to Supabase and uses the GoogleSignIn-iOS SDK, neither of which
-	is declared below yet. This needs a real pass (NSPrivacyCollectedDataTypes
-	entries, third-party SDK manifests) before the next App Store submission;
-	tracked as a cross-cutting item in the roadmap doc. Left minimal for now
-	beyond removing the no-longer-true CloudKit claim.
+	Rewritten for the Supabase-backed architecture (roadmap Phases 1-6).
+	The previous version was a CloudKit-era stub that declared no collected
+	data at all; that is no longer true. The app now sends user content and
+	account data to a backend the developer operates (Supabase), sends
+	scan photos to Anthropic's API for AI item naming, and links Firebase
+	Analytics + Firebase Cloud Messaging.
 
-	The one "required reason API" currently declared: UserDefaults, used by
-	AppearanceSettingsStore, AppLockSettingsStore, and
-	UserDefaultsOnboardingPreferences to persist simple local preferences.
-	Reason CA92.1 covers reading/writing UserDefaults data that's only ever
-	accessed by this app (and its App Group, for the widget) — not shared
-	with or readable by any other developer's app.
+	NSPrivacyTracking is false: nothing here is combined with third-party
+	data for advertising or shared with a data broker. Firebase Analytics
+	is used for first-party product analytics only, with IDFA collection
+	and ad personalization off (see FirebaseAppDelegateProxyEnabled /
+	GOOGLE_ANALYTICS_* keys in Info.plist and the Firebase console's data
+	settings). If ad features or AdSupport are ever enabled, this flag and
+	NSPrivacyTrackingDomains must both be revisited.
+
+	VERIFY-BEFORE-TRUST: the declarations below were written by reading the
+	codebase, not by running Apple's validator. Xcode surfaces a privacy
+	report at archive time (Product > Archive > Generate Privacy Report)
+	that aggregates this file with the SDKs' own bundled manifests --
+	generate it once before submitting and reconcile any differences.
 	-->
 	<key>NSPrivacyTracking</key>
 	<false/>
 	<key>NSPrivacyTrackingDomains</key>
 	<array/>
+
 	<key>NSPrivacyCollectedDataTypes</key>
-	<array/>
+	<array>
+		<!-- Email address: collected at sign-up/sign-in (email+password,
+		     Sign in with Apple, Google Sign-In) and stored in the
+		     `profiles` table. Also used to address an item gift to another
+		     account by email (gift_item RPC). -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeEmailAddress</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+
+		<!-- Display name on the profile, shown to people you share a room
+		     with or gift an item to. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeName</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+
+		<!-- Supabase auth user id; also the FCM device token stored in
+		     `device_tokens`, which is a per-install identifier. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeUserID</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+
+		<!-- Item photos: uploaded to the `item-images` Supabase Storage
+		     bucket, and sent to Anthropic's API (via the identify-item
+		     Edge Function) when AI-assisted naming runs during a scan. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypePhotosorVideos</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+
+		<!-- Room/item names, notes, location descriptions, checklists --
+		     everything the person types into the app, synced to Postgres. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeOtherUserContent</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+
+		<!-- Firebase Analytics: screen views, session starts, and the
+		     automatic events the SDK collects by default. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeProductInteraction</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+
+		<!-- Firebase Analytics also reports device/OS/app-version
+		     diagnostics alongside those events. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeOtherDiagnosticData</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+	</array>
+
 	<key>NSPrivacyAccessedAPITypes</key>
 	<array>
+		<!-- AppearanceSettingsStore, AppLockSettingsStore,
+		     UserDefaultsOnboardingPreferences, and ImageUploadTracker.
+		     CA92.1 = data accessible only to this app and its App Group
+		     (the widget shares the group), never another developer's app. -->
 		<dict>
 			<key>NSPrivacyAccessedAPIType</key>
 			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
 			<key>NSPrivacyAccessedAPITypeReasons</key>
 			<array>
 				<string>CA92.1</string>
+			</array>
+		</dict>
+
+		<!-- FileImageStorageService / RemoteImageCache read and write
+		     files inside the app's own container. C617.1 = timestamps of
+		     files created by the app itself. -->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>C617.1</string>
 			</array>
 		</dict>
 	</array>

@@ -80,7 +80,36 @@ final class HomeCoordinator {
             fetchRooms: DefaultFetchRoomsUseCase(roomRepository: container.roomRepository),
             fetchRecent: DefaultFetchRecentItemsUseCase(itemRepository: container.itemRepository),
             fetchImportant: DefaultFetchImportantItemsUseCase(itemRepository: container.itemRepository),
+            roomSharingService: container.roomSharingService,
             configuration: container.configuration,
+            logger: container.logger
+        )
+    }
+
+    /// Not cached in a `weak var` like the room/item detail view models
+    /// above: nothing pushed on top of a shared room can mutate it (it's
+    /// read-only by definition), so there's never anything to refresh it
+    /// for.
+    func makeSharedRoomDetailViewModel(roomID: UUID, ownerID: UUID) -> SharedRoomDetailViewModel {
+        SharedRoomDetailViewModel(
+            roomID: roomID,
+            ownerID: ownerID,
+            roomSharingService: container.roomSharingService,
+            logger: container.logger
+        )
+    }
+
+    func makeSharedItemDetailViewModel(
+        itemID: UUID,
+        roomID: UUID,
+        ownerID: UUID
+    ) -> SharedItemDetailViewModel {
+        SharedItemDetailViewModel(
+            itemID: itemID,
+            roomID: roomID,
+            ownerID: ownerID,
+            roomSharingService: container.roomSharingService,
+            authService: container.authService,
             logger: container.logger
         )
     }
@@ -115,6 +144,7 @@ final class HomeCoordinator {
                 roomRepository: container.roomRepository,
                 imageStorage: container.imageStorage
             ),
+            analytics: container.analytics,
             logger: container.logger
         )
     }
@@ -163,10 +193,31 @@ final class HomeCoordinator {
         )
     }
 
+    func makeGiftItemViewModel(itemID: UUID) -> GiftItemViewModel {
+        GiftItemViewModel(
+            itemID: itemID,
+            fetchDetail: DefaultFetchItemDetailUseCase(
+                itemRepository: container.itemRepository,
+                roomRepository: container.roomRepository,
+                snapshotRepository: container.snapshotRepository
+            ),
+            itemGiftingService: container.itemGiftingService,
+            syncEngine: container.syncEngine,
+            authService: container.authService,
+            imageStorage: container.imageStorage,
+            analytics: container.analytics,
+            logger: container.logger
+        )
+    }
+
     func makeShareRoomViewModel(roomID: UUID) -> ShareRoomViewModel {
         ShareRoomViewModel(
             roomID: roomID,
             roomSharingService: container.roomSharingService,
+            syncEngine: container.syncEngine,
+            authService: container.authService,
+            imageStorage: container.imageStorage,
+            analytics: container.analytics,
             logger: container.logger
         )
     }
@@ -184,6 +235,7 @@ final class HomeCoordinator {
                 snapshotRepository: container.snapshotRepository,
                 imageStorage: container.imageStorage
             ),
+            analytics: container.analytics,
             logger: container.logger
         )
     }
@@ -228,13 +280,41 @@ final class HomeCoordinator {
 
         case .shareRoom(let roomID):
             ShareRoomView(viewModel: makeShareRoomViewModel(roomID: roomID))
+
+        case .giftItem(let itemID):
+            GiftItemView(viewModel: makeGiftItemViewModel(itemID: itemID))
+
+        case .sharedRoomDetail(let roomID, let ownerID):
+            SharedRoomDetailView(
+                navigator: self,
+                viewModel: makeSharedRoomDetailViewModel(roomID: roomID, ownerID: ownerID)
+            )
+
+        case .sharedItemDetail(let itemID, let roomID, let ownerID):
+            SharedItemDetailView(
+                viewModel: makeSharedItemDetailViewModel(
+                    itemID: itemID,
+                    roomID: roomID,
+                    ownerID: ownerID
+                )
+            )
         }
+    }
+}
+
+extension HomeCoordinator: SharedRoomNavigator {
+    func pushSharedItemDetail(itemID: UUID, roomID: UUID, ownerID: UUID) {
+        push(.sharedItemDetail(itemID: itemID, roomID: roomID, ownerID: ownerID))
     }
 }
 
 extension HomeCoordinator: ItemDetailNavigator {
     func pushUpdateItemLocation(itemID: UUID) {
         push(.updateItemLocation(itemID: itemID))
+    }
+
+    func pushGiftItem(itemID: UUID) {
+        push(.giftItem(itemID: itemID))
     }
 
     func popTop() { popLast() }

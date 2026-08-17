@@ -46,10 +46,16 @@ final class AuthViewModel {
     private var currentAppleNonce: String?
 
     private let authService: AuthService
+    private let analytics: AnalyticsService
     private let onAuthenticated: @MainActor (AuthUser) -> Void
 
-    init(authService: AuthService, onAuthenticated: @escaping @MainActor (AuthUser) -> Void) {
+    init(
+        authService: AuthService,
+        analytics: AnalyticsService,
+        onAuthenticated: @escaping @MainActor (AuthUser) -> Void
+    ) {
         self.authService = authService
+        self.analytics = analytics
         self.onAuthenticated = onAuthenticated
     }
 
@@ -87,10 +93,12 @@ final class AuthViewModel {
                 switch mode {
                 case .signIn:
                     let user = try await authService.signIn(email: trimmedEmail, password: password)
+                    analytics.log(.signedIn(method: .email))
                     onAuthenticated(user)
                 case .signUp:
                     switch try await authService.signUp(email: trimmedEmail, password: password, fullName: trimmedName) {
                     case .signedIn(let user):
+                        analytics.log(.signedIn(method: .email))
                         onAuthenticated(user)
                     case .verificationRequired(let verificationEmail):
                         pendingVerificationEmail = verificationEmail
@@ -121,7 +129,17 @@ final class AuthViewModel {
     func prepareAppleRequest(_ request: ASAuthorizationAppleIDRequest) {
         let nonce = AppleSignInNonce.random()
         currentAppleNonce = nonce
-        request.requestedScopes = [.email]
+        // `.fullName` has to be asked for here or Apple simply won't return
+        // it -- this scope was previously `[.email]` only, which is why
+        // every Apple account ended up with no name. Requesting it also
+        // makes Apple show the editable name field on the consent sheet, so
+        // the person chooses what to share.
+        //
+        // Note this only takes effect for people authorising for the first
+        // time. Anyone who already signed in has been recorded as
+        // authorised by Apple and gets nil regardless of scopes, until the
+        // app is revoked under Settings > Apple Account > Sign in with Apple.
+        request.requestedScopes = [.fullName, .email]
         request.nonce = AppleSignInNonce.sha256(nonce)
     }
 
@@ -132,6 +150,7 @@ final class AuthViewModel {
             defer { isLoading = false }
             do {
                 let user = try await authService.signInWithGoogle()
+                analytics.log(.signedIn(method: .google))
                 onAuthenticated(user)
             } catch {
                 errorMessage = error.localizedDescription
@@ -164,16 +183,45 @@ final class AuthViewModel {
                 return
             }
 
+            // Apple hands the name over exactly once, on the very first
+            // authorization, and only here on the credential -- it is never
+            // in the identity token. So if it isn't captured at this moment
+            // it's gone for good: every later sign-in returns nil, and the
+            // account is left with no name at all. Hence passing it
+            // through rather than relying on Supabase to read it from the
+            // JWT the way it can for Google.
+            let fullName = Self.formattedName(from: credential.fullName)
+
             isLoading = true
             Task {
                 defer { isLoading = false }
                 do {
-                    let user = try await authService.signInWithApple(idToken: idToken, nonce: nonce)
+                    let user = try await authService.signInWithApple(
+                        idToken: idToken,
+                        nonce: nonce,
+                        fullName: fullName
+                    )
+                    analytics.log(.signedIn(method: .apple))
                     onAuthenticated(user)
                 } catch {
                     errorMessage = error.localizedDescription
                 }
             }
         }
+    }
+
+    /// Joins Apple's `PersonNameComponents` into a display name, or `nil`
+    /// if there's nothing usable.
+    ///
+    /// `nil` is the normal case on every sign-in after the first, and on
+    /// accounts where the person declined to share their name -- both mean
+    /// "don't overwrite what's already stored", not "clear it".
+    private static func formattedName(from components: PersonNameComponents?) -> String? {
+        guard let components else { return nil }
+        let formatted = PersonNameComponentsFormatter.localizedString(
+            from: components,
+            style: .default
+        ).trimmingCharacters(in: .whitespacesAndNewlines)
+        return formatted.isEmpty ? nil : formatted
     }
 }

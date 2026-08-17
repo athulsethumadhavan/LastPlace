@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		5970230F3014BC43009FA7B8 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 5970230E3014BC43009FA7B8 /* FirebaseAnalytics */; };
+		597023113014BC43009FA7B8 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 597023103014BC43009FA7B8 /* FirebaseMessaging */; };
 		5970FB6C300C9FC8009FA7B8 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 5970FB6B300C9FC8009FA7B8 /* Supabase */; };
 		5970FB73300CEA0C009FA7B8 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 5970FB72300CEA0C009FA7B8 /* GoogleSignIn */; };
 		5970FB75300CEA0C009FA7B8 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 5970FB74300CEA0C009FA7B8 /* GoogleSignInSwift */; };
@@ -206,6 +208,8 @@
 			files = (
 				5970FB75300CEA0C009FA7B8 /* GoogleSignInSwift in Frameworks */,
 				5970FB6C300C9FC8009FA7B8 /* Supabase in Frameworks */,
+				597023113014BC43009FA7B8 /* FirebaseMessaging in Frameworks */,
+				5970230F3014BC43009FA7B8 /* FirebaseAnalytics in Frameworks */,
 				5970FB73300CEA0C009FA7B8 /* GoogleSignIn in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -296,6 +300,8 @@
 				5970FB6B300C9FC8009FA7B8 /* Supabase */,
 				5970FB72300CEA0C009FA7B8 /* GoogleSignIn */,
 				5970FB74300CEA0C009FA7B8 /* GoogleSignInSwift */,
+				5970230E3014BC43009FA7B8 /* FirebaseAnalytics */,
+				597023103014BC43009FA7B8 /* FirebaseMessaging */,
 			);
 			productName = LastPlace;
 			productReference = 59055C4B3004B14F00C2437B /* LastPlace.app */;
@@ -407,6 +413,7 @@
 			packageReferences = (
 				5970FB6A300C9FC8009FA7B8 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 				5970FB71300CEA0C009FA7B8 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+				5970230D3014BC43009FA7B8 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 59055C4C3004B14F00C2437B /* Products */;
@@ -896,6 +903,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		5970230D3014BC43009FA7B8 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.16.0;
+			};
+		};
 		5970FB6A300C9FC8009FA7B8 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/supabase/supabase-swift";
@@ -915,6 +930,16 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		5970230E3014BC43009FA7B8 /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5970230D3014BC43009FA7B8 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
+		};
+		597023103014BC43009FA7B8 /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5970230D3014BC43009FA7B8 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
+		};
 		5970FB6B300C9FC8009FA7B8 /* Supabase */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 5970FB6A300C9FC8009FA7B8 /* XCRemoteSwiftPackageReference "supabase-swift" */;

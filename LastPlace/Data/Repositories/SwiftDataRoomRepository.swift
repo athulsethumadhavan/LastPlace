@@ -9,10 +9,17 @@ import WidgetKit
 
 @ModelActor
 actor SwiftDataRoomRepository: RoomRepository {
+    /// See the matching note in `SwiftDataItemRepository`: a synced row that
+    /// gets deleted is only flagged `.pendingDelete` until the next sync
+    /// removes it server-side, so reads have to exclude it or the UI keeps
+    /// showing something the person already deleted.
+    private static let deletedStatus = SyncStatus.pendingDelete.rawValue
+
     func fetchRooms(homeID: UUID) async throws -> [Room] {
         let target = homeID
+        let deleted = Self.deletedStatus
         let descriptor = FetchDescriptor<RoomEntity>(
-            predicate: #Predicate { $0.homeID == target },
+            predicate: #Predicate { $0.homeID == target && $0.syncStatusRaw != deleted },
             sortBy: [SortDescriptor(\.createdAt)]
         )
         do {
@@ -24,6 +31,9 @@ actor SwiftDataRoomRepository: RoomRepository {
 
     func fetchRoom(roomID: UUID) async throws -> Room {
         let entity = try fetchEntity(id: roomID)
+        guard entity.syncStatusRaw != Self.deletedStatus else {
+            throw RepositoryError.notFound
+        }
         return RoomMapper.toDomain(entity)
     }
 

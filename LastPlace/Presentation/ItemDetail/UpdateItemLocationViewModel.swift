@@ -21,17 +21,20 @@ final class UpdateItemLocationViewModel {
 
     private let fetchDetail: FetchItemDetailUseCase
     private let updateLocation: UpdateItemLocationUseCase
+    private let analytics: AnalyticsService
     private let logger: AppLogger
 
     init(
         itemID: UUID,
         fetchDetail: FetchItemDetailUseCase,
         updateLocation: UpdateItemLocationUseCase,
+        analytics: AnalyticsService,
         logger: AppLogger
     ) {
         self.itemID = itemID
         self.fetchDetail = fetchDetail
         self.updateLocation = updateLocation
+        self.analytics = analytics
         self.logger = logger
     }
 
@@ -72,6 +75,9 @@ final class UpdateItemLocationViewModel {
 
         do {
             _ = try await updateLocation.execute(input)
+            // Only whether a photo came along -- never the location text
+            // itself. See `AnalyticsService`'s privacy rule.
+            analytics.log(.itemLocated(hasPhoto: input.imageData != nil))
             return true
         } catch {
             logger.error("Update-location save failed", error: error, category: "update-location")

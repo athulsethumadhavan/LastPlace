@@ -42,12 +42,35 @@ struct SharingProfile: Identifiable, Hashable, Sendable {
     }
 }
 
+/// One entry in a shared item's location history.
+///
+/// `setBy` is who actually recorded it, which in a shared room is often not
+/// the item's owner — that distinction is the whole reason this type carries
+/// a profile rather than just a timestamp.
+struct SharedItemHistoryEntry: Identifiable, Sendable {
+    let id: UUID
+    var locationDescription: String
+    var capturedAt: Date
+    /// Nil for entries recorded before attribution existed, or when the
+    /// person's profile isn't readable.
+    var setBy: SharingProfile?
+
+    /// Whether this entry was recorded by the person currently signed in.
+    /// Drives "you" vs. a name in the UI.
+    func wasSetBy(_ userID: UUID?) -> Bool {
+        guard let userID, let setBy else { return false }
+        return setBy.id == userID
+    }
+}
+
 enum RoomSharingError: LocalizedError, Sendable {
     case notAuthenticated
     case notOwner
     case noAccountFound
+    case notShared
     case inviteFailed(underlying: String)
     case fetchFailed(underlying: String)
+    case updateFailed(underlying: String)
 
     var errorDescription: String? {
         switch self {
@@ -57,7 +80,11 @@ enum RoomSharingError: LocalizedError, Sendable {
             return "Only the room's owner can manage sharing for it."
         case .noAccountFound:
             return "No LastPlace account was found for that email address."
-        case .inviteFailed(let underlying), .fetchFailed(let underlying):
+        case .notShared:
+            return "You no longer have access to this room."
+        case .inviteFailed(let underlying),
+             .fetchFailed(let underlying),
+             .updateFailed(let underlying):
             return underlying
         }
     }
@@ -95,7 +122,33 @@ protocol RoomSharingService: Sendable {
     /// content. Bypasses `ImageStorageService`/`AsyncStoredImage` entirely,
     /// since those are local-file-cache-only and can never hold another
     /// account's images.
-    func loadSharedImageData(path: String) async throws -> Data
+    ///
+    /// `path` is the bare filename stored in `imagePath`/`coverImagePath`
+    /// columns (never a full Storage key) — `SyncEngine` only prepends the
+    /// owning user's id when it actually talks to Storage, so callers here
+    /// must pass that owner's id too, or the download 404s.
+    func loadSharedImageData(path: String, ownerID: UUID) async throws -> Data
+
+    /// Recipient-side location history for a single shared item, newest
+    /// first, with each entry attributed to whoever recorded it.
+    func sharedItemHistory(itemID: UUID) async throws -> [SharedItemHistoryEntry]
+
+    /// Recipient-side write. The one mutation a viewer is allowed on someone
+    /// else's item: where it is.
+    ///
+    /// Goes through the `update_shared_item_location` Postgres function
+    /// rather than a table update, because RLS can restrict which *rows* you
+    /// may write but not which *columns*. Granting viewers UPDATE on `items`
+    /// would let them rewrite the name, notes, category and importance flag
+    /// of another person's inventory, with nothing but client code stopping
+    /// them. The function touches exactly `location_description`,
+    /// `last_seen_at` and `updated_at`, so the rule is enforced by the
+    /// database instead of by good behaviour.
+    ///
+    /// No photo parameter: a viewer's upload would land in their own Storage
+    /// folder while every reader resolves image paths against the item
+    /// owner's, so it would be written somewhere nobody looks for it.
+    func updateSharedItemLocation(itemID: UUID, description: String) async throws
 
     /// Live updates to the current user's incoming shares (new invites,
     /// revocations) via Supabase Realtime.

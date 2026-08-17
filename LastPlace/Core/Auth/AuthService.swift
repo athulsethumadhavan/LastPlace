@@ -109,7 +109,11 @@ protocol AuthService: Sendable {
 
     /// `idToken`/`nonce` come from an `ASAuthorizationAppleIDCredential`
     /// (see `SignInWithAppleButton` in the Sign In screen).
-    func signInWithApple(idToken: String, nonce: String) async throws -> AuthUser
+    /// `fullName` is only non-nil on a person's *first* Apple
+    /// authorization -- Apple supplies it once, on the credential, and
+    /// never in the identity token. Implementations must treat nil as
+    /// "leave whatever's stored alone" rather than "clear the name".
+    func signInWithApple(idToken: String, nonce: String, fullName: String?) async throws -> AuthUser
 
     /// Presents Google's consent screen via the GoogleSignIn-iOS SDK, which
     /// needs a UIKit presentation anchor -- MainActor so the implementation

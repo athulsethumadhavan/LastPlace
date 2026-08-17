@@ -142,9 +142,64 @@ final class SupabaseRoomSharingService: RoomSharingService {
         }
     }
 
-    func loadSharedImageData(path: String) async throws -> Data {
+    func sharedItemHistory(itemID: UUID) async throws -> [SharedItemHistoryEntry] {
         do {
-            return try await client.storage.from("item-images").download(path: path)
+            let rows: [SharedSnapshotRow] = try await client
+                .from("item_snapshots")
+                .select()
+                .eq("item_id", value: itemID.uuidString)
+                .order("captured_at", ascending: false)
+                .execute()
+                .value
+
+            // One profile fetch per distinct author, not per row -- an item
+            // moved twenty times by two people is two lookups, not twenty.
+            let authorIDs = Set(rows.compactMap(\.createdBy))
+            var profiles: [UUID: SharingProfile] = [:]
+            for id in authorIDs {
+                if let profile = try? await fetchProfile(userID: id) {
+                    profiles[id] = profile
+                }
+            }
+
+            return rows.map { row in
+                SharedItemHistoryEntry(
+                    id: row.id,
+                    locationDescription: row.locationDescription,
+                    capturedAt: row.capturedAt,
+                    setBy: row.createdBy.flatMap { profiles[$0] }
+                )
+            }
+        } catch {
+            throw RoomSharingError.fetchFailed(underlying: error.localizedDescription)
+        }
+    }
+
+    func updateSharedItemLocation(itemID: UUID, description: String) async throws {
+        do {
+            try await client
+                .rpc("update_shared_item_location", params: [
+                    "p_item_id": itemID.uuidString,
+                    "p_description": description
+                ])
+                .execute()
+        } catch {
+            let message = error.localizedDescription
+            // The function raises this when the share was revoked between
+            // the screen loading and the save landing -- worth naming, since
+            // "you no longer have access" is actionable and the raw Postgres
+            // text is not.
+            if message.localizedCaseInsensitiveContains("not shared with you") {
+                throw RoomSharingError.notShared
+            }
+            throw RoomSharingError.updateFailed(underlying: message)
+        }
+    }
+
+    func loadSharedImageData(path: String, ownerID: UUID) async throws -> Data {
+        do {
+            return try await client.storage.from("item-images")
+                .download(path: ownerID.storageKey(for: path))
         } catch {
             throw RoomSharingError.fetchFailed(underlying: error.localizedDescription)
         }
@@ -251,6 +306,21 @@ private struct SharedItemRow: Codable, Sendable {
         case createdAt = "created_at"
         case updatedAt = "updated_at"
         case isImportant = "is_important"
+    }
+}
+
+private struct SharedSnapshotRow: Codable, Sendable {
+    let id: UUID
+    let locationDescription: String
+    let capturedAt: Date
+    /// Null for history recorded before the `created_by` column existed.
+    let createdBy: UUID?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case locationDescription = "location_description"
+        case capturedAt = "captured_at"
+        case createdBy = "created_by"
     }
 }
 

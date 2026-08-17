@@ -1,0 +1,301 @@
+//
+//  GiftsViewModel.swift
+//  LastPlace
+//
+//  Recipient + sender side of Phase 5 gifting in one screen: gifts sent to
+//  you (accept into a room of your own, or decline) and gifts you've sent
+//  (cancel while still pending). Reads live from Supabase via
+//  `ItemGiftingService` — nothing here touches SwiftData directly; an
+//  accepted gift's resulting item is picked up locally the next time this
+//  device's own `SyncEngine` runs.
+//
+
+import Foundation
+import Observation
+
+/// `deinit` on an `@MainActor` class is always nonisolated, so it can't
+/// touch a normal MainActor-isolated `var` directly -- not even a
+/// `Sendable` one, since the *property storage itself* is what's isolated,
+/// not just the value inside it. Boxing the task in its own small
+/// `@unchecked Sendable` reference type sidesteps that -- see
+/// `AccountViewModel`'s identical use of this pattern.
+private final class TaskBox: @unchecked Sendable {
+    var task: Task<Void, Never>?
+    func cancel() { task?.cancel() }
+}
+
+struct IncomingGiftSummary: Identifiable, Sendable {
+    let gift: ItemGift
+    let senderProfile: SharingProfile?
+    var id: UUID { gift.id }
+}
+
+struct OutgoingGiftSummary: Identifiable, Sendable {
+    let gift: ItemGift
+    let recipientProfile: SharingProfile?
+    var id: UUID { gift.id }
+}
+
+struct GiftsContent: Sendable {
+    let incoming: [IncomingGiftSummary]
+    let outgoing: [OutgoingGiftSummary]
+}
+
+@Observable
+@MainActor
+final class GiftsViewModel {
+    private(set) var state: LoadableState<GiftsContent> = .idle
+    private(set) var mutatingGiftID: UUID?
+    var actionError: UserFacingError?
+
+    private let itemGiftingService: ItemGiftingService
+    private let homeRepository: HomeRepository
+    private let roomRepository: RoomRepository
+    /// Only used by `accept(_:intoRoomID:)`, to write the newly-created
+    /// item and its photo into local storage the moment it's accepted --
+    /// see that method's doc comment for why this doesn't wait for the
+    /// next `SyncEngine` pass.
+    private let itemRepository: ItemRepository
+    private let imageStorage: ImageStorageService
+    /// Needed by `accept(_:intoRoomID:)` to push any locally-created room
+    /// up to Postgres before the `accept_gift` RPC tries to validate it --
+    /// see that method's doc comment.
+    private let syncEngine: PendingChangesSyncing
+    private let authService: AuthService
+    private let analytics: AnalyticsService
+    private let logger: AppLogger
+    /// Tells `SettingsCoordinator` a gift was accepted, so it can notify
+    /// Home to reload -- without this, the item this just wrote to local
+    /// storage (see `accept(_:intoRoomID:)`) wouldn't show up on the Home
+    /// tab until the next unrelated full refresh. Same rationale as
+    /// `SettingsCoordinator.onAllDataDeleted`.
+    private let onAccepted: @MainActor () -> Void
+    private let observationTaskBox = TaskBox()
+
+    init(
+        itemGiftingService: ItemGiftingService,
+        homeRepository: HomeRepository,
+        roomRepository: RoomRepository,
+        itemRepository: ItemRepository,
+        imageStorage: ImageStorageService,
+        syncEngine: PendingChangesSyncing,
+        authService: AuthService,
+        analytics: AnalyticsService,
+        logger: AppLogger,
+        onAccepted: @escaping @MainActor () -> Void
+    ) {
+        self.itemGiftingService = itemGiftingService
+        self.homeRepository = homeRepository
+        self.roomRepository = roomRepository
+        self.itemRepository = itemRepository
+        self.imageStorage = imageStorage
+        self.syncEngine = syncEngine
+        self.authService = authService
+        self.analytics = analytics
+        self.logger = logger
+        self.onAccepted = onAccepted
+
+        // Live updates for incoming gifts only -- there's no equivalent
+        // stream for outgoing gifts, so this only ever touches the
+        // `incoming` half of `state` via `applyIncoming`, leaving whatever
+        // `outgoing` was last set by `refresh()` untouched. Captures
+        // `itemGiftingService` by value (not through `self`) so this task
+        // never holds a strong reference back to this view model --
+        // otherwise it would stay alive for as long as the stream keeps
+        // yielding, and `deinit` (which is what's supposed to cancel it)
+        // would never run.
+        observationTaskBox.task = Task { [weak self, itemGiftingService] in
+            for await gifts in itemGiftingService.observeIncomingGifts() {
+                guard !Task.isCancelled else { return }
+                guard let self else { return }
+                let summaries = await self.summarize(gifts)
+                self.applyIncoming(summaries)
+            }
+        }
+    }
+
+    deinit {
+        observationTaskBox.cancel()
+    }
+
+    var pendingIncoming: [IncomingGiftSummary] {
+        (state.value?.incoming ?? []).filter { $0.gift.status == .pending }
+    }
+
+    var resolvedIncoming: [IncomingGiftSummary] {
+        (state.value?.incoming ?? []).filter { $0.gift.status != .pending }
+    }
+
+    var outgoing: [OutgoingGiftSummary] {
+        state.value?.outgoing ?? []
+    }
+
+    func load() async {
+        if case .loading = state { return }
+        state = .loading
+        await refresh()
+    }
+
+    /// Loader handed to `AsyncRemoteImage` for a gift's snapshot photo. The
+    /// sender's id has to travel with the path because the Storage object
+    /// lives under *their* folder, not this account's.
+    ///
+    /// Fails for already-resolved gifts by design -- the recipient's read
+    /// access is scoped to `status = 'pending'` -- so the view falls back to
+    /// the category glyph rather than showing an error.
+    func loadGiftImage(senderID: UUID) -> (String) async throws -> Data {
+        let service = itemGiftingService
+        return { path in
+            try await service.loadGiftImageData(sourcePath: path, senderID: senderID)
+        }
+    }
+
+    /// Destination rooms for the accept flow's room picker — this device's
+    /// own inventory, same lookup `CreateRoomHost` uses.
+    func fetchRoomsForAccept() async throws -> [Room] {
+        let home = try await homeRepository.fetchDefaultHome()
+        return try await roomRepository.fetchRooms(homeID: home.id)
+    }
+
+    /// Accepting doesn't just create the item in Supabase — it also writes
+    /// the item and its photo into this device's own local storage right
+    /// away. Without this, the new item would only exist remotely until
+    /// the next `SyncEngine.sync()` pass (next sign-in or app foreground),
+    /// so it'd be invisible in Home/Search the moment you accept it.
+    /// `itemRepository.create` always marks the row `.pendingUpsert`, so
+    /// the next sync harmlessly re-upserts identical data — not worth a
+    /// special "already synced" path just to skip that.
+    func accept(_ giftID: UUID, intoRoomID roomID: UUID) {
+        guard mutatingGiftID == nil else { return }
+        mutatingGiftID = giftID
+        Task {
+            defer { mutatingGiftID = nil }
+            do {
+                // The room picker lists rooms from local SwiftData, but
+                // `accept_gift` validates ownership against the Postgres
+                // `rooms` table. A room created on this device and not yet
+                // pushed exists only locally, so the RPC correctly can't
+                // find it and the accept fails with `roomNotOwned` -- which
+                // reads as "you picked someone else's room" even though the
+                // person picked a room they'd just made themselves. Sync
+                // first so the chosen room is guaranteed to exist
+                // server-side. Best-effort: if this fails (offline), the
+                // accept below fails with the same clear error it would
+                // have anyway, rather than this throwing something vaguer.
+                if let userID = await authService.currentUser?.id {
+                    try? await syncEngine.sync(userID: userID, imageStorage: imageStorage)
+                }
+                let (item, imageData) = try await itemGiftingService.acceptGift(giftID, intoRoomID: roomID)
+                if let imageData, let imagePath = item.imagePath {
+                    try await imageStorage.restoreImageData(imageData, at: imagePath)
+                }
+                _ = try await itemRepository.create(item)
+                analytics.log(.giftAccepted)
+                // The accepted gift also becomes a new item in this
+                // account's inventory, so it counts as an item saved --
+                // logged with `.giftAccepted` as the source so it can be
+                // told apart from scanned and manually-added items.
+                analytics.log(.itemSaved(
+                    source: .giftAccepted,
+                    category: item.category,
+                    hasPhoto: item.imagePath != nil
+                ))
+                await refresh()
+                onAccepted()
+            } catch {
+                logger.error("Accepting gift failed", error: error, category: "gifting")
+                actionError = UserFacingError.from(error)
+            }
+        }
+    }
+
+    func decline(_ giftID: UUID) {
+        guard mutatingGiftID == nil else { return }
+        mutatingGiftID = giftID
+        Task {
+            defer { mutatingGiftID = nil }
+            do {
+                try await itemGiftingService.declineGift(giftID)
+                await refresh()
+            } catch {
+                logger.error("Declining gift failed", error: error, category: "gifting")
+                actionError = UserFacingError.from(error)
+            }
+        }
+    }
+
+    func cancel(_ giftID: UUID) {
+        guard mutatingGiftID == nil else { return }
+        mutatingGiftID = giftID
+        Task {
+            defer { mutatingGiftID = nil }
+            do {
+                try await itemGiftingService.cancelGift(giftID)
+                await refresh()
+            } catch {
+                logger.error("Cancelling gift failed", error: error, category: "gifting")
+                actionError = UserFacingError.from(error)
+            }
+        }
+    }
+
+    private func refresh() async {
+        do {
+            async let incomingTask = itemGiftingService.incomingGifts()
+            async let outgoingTask = itemGiftingService.outgoingGifts()
+            let (incomingGifts, outgoingGifts) = try await (incomingTask, outgoingTask)
+
+            let incomingResult = await summarize(incomingGifts)
+            let outgoingResult = await summarize(outgoingGifts, ownerOf: \.toUserID)
+
+            state = .loaded(GiftsContent(
+                incoming: incomingResult.sorted { $0.gift.createdAt > $1.gift.createdAt },
+                outgoing: outgoingResult.sorted { $0.gift.createdAt > $1.gift.createdAt }
+            ))
+        } catch {
+            logger.error("Loading gifts failed", error: error, category: "gifting")
+            state = .failed(UserFacingError.from(error))
+        }
+    }
+
+    /// Applied by the live `observeIncomingGifts()` stream in `init` --
+    /// updates only the `incoming` half of `state`, preserving whatever
+    /// `outgoing` was last set by `refresh()`.
+    private func applyIncoming(_ incoming: [IncomingGiftSummary]) {
+        let outgoing = state.value?.outgoing ?? []
+        state = .loaded(GiftsContent(
+            incoming: incoming.sorted { $0.gift.createdAt > $1.gift.createdAt },
+            outgoing: outgoing
+        ))
+    }
+
+    private func summarize(_ gifts: [ItemGift]) async -> [IncomingGiftSummary] {
+        let itemGiftingService = self.itemGiftingService
+        return await withTaskGroup(of: IncomingGiftSummary.self) { group in
+            for gift in gifts {
+                group.addTask {
+                    let profile = try? await itemGiftingService.fetchProfile(userID: gift.fromUserID)
+                    return IncomingGiftSummary(gift: gift, senderProfile: profile)
+                }
+            }
+            var results: [IncomingGiftSummary] = []
+            for await summary in group { results.append(summary) }
+            return results
+        }
+    }
+
+    private func summarize(_ gifts: [ItemGift], ownerOf keyPath: KeyPath<ItemGift, UUID>) async -> [OutgoingGiftSummary] {
+        let itemGiftingService = self.itemGiftingService
+        return await withTaskGroup(of: OutgoingGiftSummary.self) { group in
+            for gift in gifts {
+                group.addTask {
+                    let profile = try? await itemGiftingService.fetchProfile(userID: gift[keyPath: keyPath])
+                    return OutgoingGiftSummary(gift: gift, recipientProfile: profile)
+                }
+            }
+            var results: [OutgoingGiftSummary] = []
+            for await summary in group { results.append(summary) }
+            return results
+        }
+    }
+}
