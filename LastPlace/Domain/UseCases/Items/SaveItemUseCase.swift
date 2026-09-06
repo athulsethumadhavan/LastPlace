@@ -42,6 +42,19 @@ struct SaveItemInput: Sendable {
     }
 }
 
+/// Thrown when a free account tries to save past the item cap.
+///
+/// Its own type rather than a `ValidationError`, because the caller needs to
+/// tell it apart from "that name is too long" — one is corrected by editing
+/// the form, the other by subscribing, and they need different UI.
+struct ItemLimitReachedError: LocalizedError, Sendable, Equatable {
+    let limit: Int
+
+    var errorDescription: String? {
+        "Free accounts can save up to \(limit) items."
+    }
+}
+
 protocol SaveItemUseCase: Sendable {
     func execute(_ input: SaveItemInput) async throws -> StoredItem
 }
@@ -50,8 +63,30 @@ struct DefaultSaveItemUseCase: SaveItemUseCase {
     let itemRepository: ItemRepository
     let snapshotRepository: SnapshotRepository
     let imageStorage: ImageStorageService
+    let entitlementService: EntitlementService
 
     func execute(_ input: SaveItemInput) async throws -> StoredItem {
+        // The cap is checked here rather than in the view model so every
+        // creation path inherits it -- there is currently one (the scan save
+        // form, which "Add Manually" also routes through), but a second one
+        // added later shouldn't have to remember.
+        //
+        // Counts local rows against the *remote* entitlement. Saving is
+        // local-first, so the server's insert trigger doesn't fire until the
+        // next sync; without this check a free user would create items that
+        // look saved and then silently fail to push.
+        //
+        // A failed entitlement lookup degrades to free rather than throwing:
+        // being offline shouldn't block someone under the limit from saving,
+        // and someone over it is still caught by the server on sync.
+        let status = await entitlementService.statusOrFree()
+        if !status.isPremium {
+            let count = try await itemRepository.countItems()
+            guard count < EntitlementStatus.freeItemLimit else {
+                throw ItemLimitReachedError(limit: EntitlementStatus.freeItemLimit)
+            }
+        }
+
         let itemID = UUID()
 
         var imagePath: String?

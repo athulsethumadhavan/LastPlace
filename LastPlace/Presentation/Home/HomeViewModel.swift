@@ -20,6 +20,8 @@ final class HomeViewModel {
     private let fetchRecent: FetchRecentItemsUseCase
     private let fetchImportant: FetchImportantItemsUseCase
     private let roomSharingService: RoomSharingService
+    private let itemRepository: ItemRepository
+    private let entitlementService: EntitlementService
     private let configuration: AppConfiguration
     private let logger: AppLogger
 
@@ -29,6 +31,8 @@ final class HomeViewModel {
         fetchRecent: FetchRecentItemsUseCase,
         fetchImportant: FetchImportantItemsUseCase,
         roomSharingService: RoomSharingService,
+        itemRepository: ItemRepository,
+        entitlementService: EntitlementService,
         configuration: AppConfiguration,
         logger: AppLogger
     ) {
@@ -37,6 +41,8 @@ final class HomeViewModel {
         self.fetchRecent = fetchRecent
         self.fetchImportant = fetchImportant
         self.roomSharingService = roomSharingService
+        self.itemRepository = itemRepository
+        self.entitlementService = entitlementService
         self.configuration = configuration
         self.logger = logger
     }
@@ -59,6 +65,10 @@ final class HomeViewModel {
             // access to all of their *own* rooms the moment they walk into
             // a lift. Degrades to an absent section instead.
             async let sharedTask = loadSharedRooms()
+            // Same non-throwing treatment: an entitlement lookup needs the
+            // network, and failing to read it shouldn't cost someone their
+            // dashboard. Absent usage just means the counter isn't drawn.
+            async let usageTask = loadItemUsage()
 
             let (rooms, recent, important) = try await (roomsTask, recentTask, importantTask)
 
@@ -67,7 +77,8 @@ final class HomeViewModel {
                 rooms: rooms,
                 recentItems: recent,
                 importantItems: important,
-                sharedRooms: await sharedTask
+                sharedRooms: await sharedTask,
+                itemUsage: await usageTask
             )
             state = .loaded(content)
         } catch {
@@ -119,6 +130,21 @@ final class HomeViewModel {
             )
             return []
         }
+    }
+
+    /// Free-tier usage for the Home counter, or nil when there's nothing to
+    /// show — premium accounts, or a lookup that failed.
+    ///
+    /// Counts the local store rather than trusting `remaining_item_slots`,
+    /// for the same reason `SaveItemUseCase` does: saving is local-first, so
+    /// items created since the last sync exist here and not yet on the
+    /// server. Showing "8 of 10" while the person is actually at 10 locally
+    /// would set them up for a refusal they were told wasn't coming.
+    private func loadItemUsage() async -> ItemUsage? {
+        let status = await entitlementService.statusOrFree()
+        guard !status.isPremium else { return nil }
+        guard let count = try? await itemRepository.countItems() else { return nil }
+        return ItemUsage(used: count, limit: EntitlementStatus.freeItemLimit)
     }
 
     func refresh() async {

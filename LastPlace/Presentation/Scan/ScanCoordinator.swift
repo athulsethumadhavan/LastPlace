@@ -78,6 +78,10 @@ final class ScanCoordinator {
     private let saveItem: SaveItemUseCase
     private let detection: ObjectDetectionService
     private let aiIdentification: AIItemIdentificationService
+    /// Decides whether the AI naming path is even attempted. Not a security
+    /// boundary -- `identify-item` refuses unentitled callers itself -- just
+    /// a way to avoid making free users wait on a doomed request.
+    private let entitlementService: EntitlementService
     private let logger: AppLogger
 
     /// Detections below this threshold are hidden in the review UI to keep the
@@ -104,10 +108,12 @@ final class ScanCoordinator {
         self.saveItem = DefaultSaveItemUseCase(
             itemRepository: container.itemRepository,
             snapshotRepository: container.snapshotRepository,
-            imageStorage: container.imageStorage
+            imageStorage: container.imageStorage,
+            entitlementService: container.entitlementService
         )
         self.detection = container.objectDetection
         self.aiIdentification = container.aiItemIdentification
+        self.entitlementService = container.entitlementService
         self.logger = container.logger
     }
 
@@ -230,43 +236,72 @@ final class ScanCoordinator {
         }
 
         // AI: slow path, upgrades the label in place when it lands.
-        Task { [aiIdentification, logger, weak self] in
-            // Deliberately do/catch rather than `try?`: silently keeping the
-            // Vision label is right for the *user*, but it also made the AI
-            // path undiagnosable -- a missing API key, an expired session
-            // and "the model saw nothing" all looked identical from
-            // outside. Log the reason, keep what Vision gave us.
-            do {
-                let aiResult = try await aiIdentification.identifyItem(in: imageData)
-                let trimmedName = aiResult.name.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !trimmedName.isEmpty else {
-                    logger.warning(
-                        "AI identification returned an empty name; falling back to Vision",
-                        category: "scan"
-                    )
-                    guard let self else { return }
-                    self.markAIFailed(for: captureID)
-                    return
-                }
-                guard let self else { return }
-                self.applyAIDetection(
-                    DetectedObject(
-                        label: trimmedName,
-                        confidence: aiResult.confidence,
-                        boundingBox: CGRect(x: 0, y: 0, width: 1, height: 1),
-                        suggestedCategory: aiResult.category
-                    ),
-                    to: captureID
-                )
-            } catch {
-                logger.error(
-                    "AI identification failed; falling back to Vision",
-                    error: error,
-                    category: "scan"
-                )
+        //
+        // Premium only. `identify-item` refuses a free account with 402
+        // anyway -- that's the enforceable check, since every call costs real
+        // money on the Anthropic account and a client-side gate alone is
+        // bypassable. This one exists purely so a free user isn't left
+        // watching a spinner through a network round-trip that was always
+        // going to be refused; skipping it means Vision's result shows
+        // immediately instead.
+        Task { [aiIdentification, entitlementService, logger, weak self] in
+            guard await entitlementService.statusOrFree().isPremium else {
+                logger.log("AI naming skipped: no active entitlement", category: "scan")
                 guard let self else { return }
                 self.markAIFailed(for: captureID)
+                return
             }
+            await self?.runAIDetection(
+                for: captureID,
+                imageData: imageData,
+                aiIdentification: aiIdentification,
+                logger: logger
+            )
+        }
+    }
+
+    /// Extracted from `runDetection` so the entitlement guard above reads as
+    /// one decision rather than nesting the whole AI path inside it. No
+    /// `weak self` dance here -- the calling `Task` already holds `self`
+    /// weakly and only reaches this after unwrapping it.
+    private func runAIDetection(
+        for captureID: UUID,
+        imageData: Data,
+        aiIdentification: AIItemIdentificationService,
+        logger: AppLogger
+    ) async {
+        // Deliberately do/catch rather than `try?`: silently keeping the
+        // Vision label is right for the *user*, but it also made the AI
+        // path undiagnosable -- a missing API key, an expired session
+        // and "the model saw nothing" all looked identical from
+        // outside. Log the reason, keep what Vision gave us.
+        do {
+            let aiResult = try await aiIdentification.identifyItem(in: imageData)
+            let trimmedName = aiResult.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedName.isEmpty else {
+                logger.warning(
+                    "AI identification returned an empty name; falling back to Vision",
+                    category: "scan"
+                )
+                markAIFailed(for: captureID)
+                return
+            }
+            applyAIDetection(
+                DetectedObject(
+                    label: trimmedName,
+                    confidence: aiResult.confidence,
+                    boundingBox: CGRect(x: 0, y: 0, width: 1, height: 1),
+                    suggestedCategory: aiResult.category
+                ),
+                to: captureID
+            )
+        } catch {
+            logger.error(
+                "AI identification failed; falling back to Vision",
+                error: error,
+                category: "scan"
+            )
+            markAIFailed(for: captureID)
         }
     }
 
@@ -367,13 +402,51 @@ final class ScanCoordinator {
 
     // MARK: Screen transitions
 
-    func goToReview() { screen = .review }
+    func goToReview() {
+        screen = .review
+        Task { await refreshRemainingSlots() }
+    }
     func goToCapture() { screen = .capture }
+
+    /// Free-tier item slots left, or nil when there's no cap to report
+    /// (premium, or the lookup failed).
+    ///
+    /// Drives the forewarning on the review screen. Saving is already gated
+    /// per item by `SaveItemUseCase`, and a refused save leaves its capture
+    /// in the list rather than discarding it — so nothing is lost either
+    /// way. This exists so someone doesn't photograph six things and only
+    /// discover on the third save that two of them will never fit, which is
+    /// the same outcome but feels like a trap.
+    private(set) var remainingItemSlots: Int?
+
+    /// Recomputed on entering review and after each save, because both
+    /// change the answer — and a stale count here would promise room that
+    /// isn't there.
+    func refreshRemainingSlots() async {
+        let status = await container.entitlementService.statusOrFree()
+        guard !status.isPremium else {
+            remainingItemSlots = nil
+            return
+        }
+        // Counts local rows for the same reason `SaveItemUseCase` does:
+        // saving is local-first, so items created since the last sync exist
+        // here and not yet on the server.
+        guard let used = try? await container.itemRepository.countItems() else {
+            remainingItemSlots = nil
+            return
+        }
+        remainingItemSlots = max(0, EntitlementStatus.freeItemLimit - used)
+    }
 
     /// Called by `ScanSaveItemView` after a successful save. The item-level
     /// `.itemSaved` event is logged by `ScanSaveItemViewModel` itself; this
     /// only keeps the per-session tally for `.scanCompleted`.
-    func recordItemSaved() { itemsSavedCount += 1 }
+    func recordItemSaved() {
+        itemsSavedCount += 1
+        // A save consumed a slot, so the review screen's remaining count is
+        // now wrong until this runs.
+        Task { await refreshRemainingSlots() }
+    }
 
     func selectDetection(_ detection: DetectedObject, for captureID: UUID) {
         screen = .saveDetection(captureID: captureID, detection: detection)

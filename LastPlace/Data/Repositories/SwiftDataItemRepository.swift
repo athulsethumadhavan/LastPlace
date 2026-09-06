@@ -35,6 +35,22 @@ actor SwiftDataItemRepository: ItemRepository {
         return StoredItemMapper.toDomain(entity)
     }
 
+    func countItems() async throws -> Int {
+        let deleted = Self.deletedStatus
+        let descriptor = FetchDescriptor<StoredItemEntity>(
+            predicate: #Predicate { $0.syncStatusRaw != deleted }
+        )
+        do {
+            // `fetchCount` rather than fetching and counting: this runs on
+            // every save and on every Home load, and materialising every
+            // item just to take `.count` would get slower exactly as
+            // someone's inventory grows.
+            return try modelContext.fetchCount(descriptor)
+        } catch {
+            throw RepositoryError.persistenceFailed(underlying: error.localizedDescription)
+        }
+    }
+
     func fetchItems(roomID: UUID) async throws -> [StoredItem] {
         let target = roomID
         let deleted = Self.deletedStatus

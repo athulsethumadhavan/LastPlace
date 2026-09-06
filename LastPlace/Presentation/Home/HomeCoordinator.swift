@@ -81,6 +81,8 @@ final class HomeCoordinator {
             fetchRecent: DefaultFetchRecentItemsUseCase(itemRepository: container.itemRepository),
             fetchImportant: DefaultFetchImportantItemsUseCase(itemRepository: container.itemRepository),
             roomSharingService: container.roomSharingService,
+            itemRepository: container.itemRepository,
+            entitlementService: container.entitlementService,
             configuration: container.configuration,
             logger: container.logger
         )
@@ -202,6 +204,7 @@ final class HomeCoordinator {
                 snapshotRepository: container.snapshotRepository
             ),
             itemGiftingService: container.itemGiftingService,
+            entitlementService: container.entitlementService,
             syncEngine: container.syncEngine,
             authService: container.authService,
             imageStorage: container.imageStorage,

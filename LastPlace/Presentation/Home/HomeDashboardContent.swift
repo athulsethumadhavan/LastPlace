@@ -5,6 +5,21 @@
 
 import Foundation
 
+/// Free-tier item usage, for the counter on Home.
+struct ItemUsage: Equatable, Sendable {
+    let used: Int
+    let limit: Int
+
+    var isExhausted: Bool { used >= limit }
+
+    /// Only worth drawing attention to once someone is close enough for it
+    /// to matter. Showing "1 of 10" from day one turns the app's main screen
+    /// into a meter, which makes a free tier feel like a trial.
+    var isWorthShowing: Bool { used >= limit - 3 }
+
+    var label: String { "\(used) of \(limit) items used" }
+}
+
 /// One room another account has shared with this user, flattened for Home.
 ///
 /// Deliberately its own type rather than reusing Settings'
@@ -29,6 +44,11 @@ struct HomeDashboardContent: Sendable {
     let rooms: [Room]
     let recentItems: [StoredItem]
     let importantItems: [StoredItem]
+    /// Free-tier usage, or nil for premium accounts — where there's no cap,
+    /// there's nothing worth saying, and a permanent "unlimited" badge on
+    /// the busiest screen in the app is noise someone has already paid to
+    /// stop seeing.
+    let itemUsage: ItemUsage?
     /// Rooms shared *with* this user. Never mirrored into local SwiftData
     /// (see the note atop `RoomSharingService`), so unlike every other
     /// field here this one is fetched live and comes back empty when

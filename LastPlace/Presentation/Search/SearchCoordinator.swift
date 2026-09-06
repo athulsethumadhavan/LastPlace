@@ -87,6 +87,7 @@ final class SearchCoordinator {
                 snapshotRepository: container.snapshotRepository
             ),
             itemGiftingService: container.itemGiftingService,
+            entitlementService: container.entitlementService,
             syncEngine: container.syncEngine,
             authService: container.authService,
             imageStorage: container.imageStorage,

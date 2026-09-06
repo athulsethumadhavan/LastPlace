@@ -20,6 +20,11 @@ final class ScanSaveItemViewModel {
     var isImportant: Bool = false
     var isSaving: Bool = false
     var error: UserFacingError?
+    /// Set instead of `error` when the save was refused by the free-tier
+    /// cap. Kept separate so the view presents the paywall rather than an
+    /// alert -- "you've run out of free items" is an offer, and rendering it
+    /// as an error with an OK button gives someone nothing to act on.
+    var paywallReason: PaywallReason?
 
     let imageData: Data?
     let detectionLabel: String
@@ -102,6 +107,13 @@ final class ScanSaveItemViewModel {
                 .caseInsensitiveCompare(detectionLabel.trimmingCharacters(in: .whitespacesAndNewlines)) == .orderedSame
             analytics.log(.itemNamed(outcome: keptSuggestion ? namingOutcome : .none))
             return saved
+        } catch let limit as ItemLimitReachedError {
+            // Not logged as an error -- hitting the free cap is expected
+            // product behaviour, and logging it as a failure makes real
+            // save failures harder to find later.
+            logger.log("Save blocked by free-tier item limit (\(limit.limit))", category: "scan")
+            paywallReason = .itemLimitReached
+            return nil
         } catch {
             logger.error("Scan save item failed", error: error, category: "scan")
             self.error = UserFacingError.from(error)

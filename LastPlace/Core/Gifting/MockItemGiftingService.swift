@@ -48,6 +48,20 @@ final class MockItemGiftingService: ItemGiftingService, @unchecked Sendable {
         outgoing.removeAll { $0.id == giftID }
     }
 
+    /// Records the call so previews and tests can assert the sender was
+    /// told, without needing a server.
+    private(set) var inventoryFullNotifications: [UUID] = []
+
+    @discardableResult
+    func notifySenderInventoryFull(giftID: UUID) async -> Bool {
+        guard incoming.contains(where: { $0.id == giftID && $0.status == .pending }) else {
+            return false
+        }
+        guard !inventoryFullNotifications.contains(giftID) else { return false }
+        inventoryFullNotifications.append(giftID)
+        return true
+    }
+
     func declineGift(_ giftID: UUID) async throws {
         guard let index = incoming.firstIndex(where: { $0.id == giftID }) else { return }
         incoming[index].status = .declined

@@ -47,8 +47,18 @@ final class GiftsViewModel {
     private(set) var state: LoadableState<GiftsContent> = .idle
     private(set) var mutatingGiftID: UUID?
     var actionError: UserFacingError?
+    /// Set instead of `actionError` when a gate refuses the action — sending
+    /// without premium, or accepting with a full inventory. Separate so the
+    /// view presents the paywall rather than an alert: both are offers, and
+    /// an alert with an OK button leaves someone nothing to act on.
+    var paywallReason: PaywallReason?
 
     private let itemGiftingService: ItemGiftingService
+    /// Used only to recognise the server's `FREE_TIER_ITEM_LIMIT` refusal.
+    /// The cap itself is enforced inside `accept_gift`, before it writes
+    /// anything — this just turns that refusal into a paywall instead of an
+    /// error alert.
+    private let entitlementService: EntitlementService
     private let homeRepository: HomeRepository
     private let roomRepository: RoomRepository
     /// Only used by `accept(_:intoRoomID:)`, to write the newly-created
@@ -74,6 +84,7 @@ final class GiftsViewModel {
 
     init(
         itemGiftingService: ItemGiftingService,
+        entitlementService: EntitlementService,
         homeRepository: HomeRepository,
         roomRepository: RoomRepository,
         itemRepository: ItemRepository,
@@ -85,6 +96,7 @@ final class GiftsViewModel {
         onAccepted: @escaping @MainActor () -> Void
     ) {
         self.itemGiftingService = itemGiftingService
+        self.entitlementService = entitlementService
         self.homeRepository = homeRepository
         self.roomRepository = roomRepository
         self.itemRepository = itemRepository
@@ -203,6 +215,19 @@ final class GiftsViewModel {
                 await refresh()
                 onAccepted()
             } catch {
+                // The server refuses a full free-tier inventory before it
+                // touches anything, so the gift is still pending and the
+                // sender still has their item -- nothing to undo here.
+                if entitlementService.isItemLimitError(error) {
+                    logger.log("Gift accept blocked by free-tier item limit", category: "gifting")
+                    // Best-effort, and awaited before showing the paywall so
+                    // the sender is told even if the person immediately
+                    // dismisses. Fire-and-forget would race the view model
+                    // going away with the screen.
+                    await itemGiftingService.notifySenderInventoryFull(giftID: giftID)
+                    paywallReason = .acceptGiftAtLimit
+                    return
+                }
                 logger.error("Accepting gift failed", error: error, category: "gifting")
                 actionError = UserFacingError.from(error)
             }

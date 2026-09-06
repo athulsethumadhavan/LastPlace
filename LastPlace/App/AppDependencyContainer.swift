@@ -53,6 +53,11 @@ final class AppDependencyContainer {
     /// `UIApplication.registerForRemoteNotifications()` so `AppCoordinator`
     /// doesn't import UIKit/UserNotifications directly.
     let pushNotificationPermissionService: PushNotificationPermissionService
+    /// Phase 7 — Monetization. Reads subscription state; never writes it.
+    /// The gates it drives in the UI are courtesies — the enforceable
+    /// versions live in Postgres (the `items` insert trigger, the check
+    /// inside `accept_gift`, and the 402 from `identify-item`).
+    let entitlementService: EntitlementService
     /// First-party product analytics. See `AnalyticsService`'s doc comment
     /// for the rule about never passing user content as a parameter.
     let analytics: AnalyticsService
@@ -91,6 +96,7 @@ final class AppDependencyContainer {
         itemGiftingService: ItemGiftingService,
         deviceTokenService: DeviceTokenService,
         pushNotificationPermissionService: PushNotificationPermissionService,
+        entitlementService: EntitlementService,
         analytics: AnalyticsService,
         homeRepository: HomeRepository,
         roomRepository: RoomRepository,
@@ -115,6 +121,7 @@ final class AppDependencyContainer {
         self.itemGiftingService = itemGiftingService
         self.deviceTokenService = deviceTokenService
         self.pushNotificationPermissionService = pushNotificationPermissionService
+        self.entitlementService = entitlementService
         self.analytics = analytics
         self.syncEngine = SyncEngine(modelContainer: modelContainer)
         self.homeRepository = homeRepository
@@ -148,6 +155,7 @@ final class AppDependencyContainer {
             itemGiftingService: SupabaseItemGiftingService(),
             deviceTokenService: SupabaseDeviceTokenService(),
             pushNotificationPermissionService: SystemPushNotificationPermissionService(),
+            entitlementService: SupabaseEntitlementService(),
             analytics: FirebaseAnalyticsService(),
             homeRepository: SwiftDataHomeRepository(modelContainer: modelContainer),
             roomRepository: SwiftDataRoomRepository(modelContainer: modelContainer),
@@ -181,6 +189,7 @@ final class AppDependencyContainer {
             itemGiftingService: MockItemGiftingService(),
             deviceTokenService: MockDeviceTokenService(),
             pushNotificationPermissionService: MockPushNotificationPermissionService(),
+            entitlementService: MockEntitlementService(),
             analytics: MockAnalyticsService(),
             homeRepository: SwiftDataHomeRepository(modelContainer: modelContainer),
             roomRepository: SwiftDataRoomRepository(modelContainer: modelContainer),

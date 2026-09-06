@@ -97,6 +97,24 @@ final class SupabaseItemGiftingService: ItemGiftingService {
         }
     }
 
+    @discardableResult
+    func notifySenderInventoryFull(giftID: UUID) async -> Bool {
+        do {
+            let didNotify: Bool = try await client
+                .rpc("notify_sender_gift_blocked", params: ["p_gift_id": giftID.uuidString])
+                .execute()
+                .value
+            return didNotify
+        } catch {
+            // Swallowed on purpose. This runs on a path where the person has
+            // already been refused and shown a paywall; a second alert about
+            // a courtesy notification failing would be noise about something
+            // they never asked for. The gift simply stays pending, which is
+            // the same state it was in before.
+            return false
+        }
+    }
+
     func declineGift(_ giftID: UUID) async throws {
         do {
             try await client

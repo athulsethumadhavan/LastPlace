@@ -130,6 +130,7 @@ final class SettingsCoordinator {
     private func makeGiftsViewModel() -> GiftsViewModel {
         GiftsViewModel(
             itemGiftingService: container.itemGiftingService,
+            entitlementService: container.entitlementService,
             homeRepository: container.homeRepository,
             roomRepository: container.roomRepository,
             itemRepository: container.itemRepository,

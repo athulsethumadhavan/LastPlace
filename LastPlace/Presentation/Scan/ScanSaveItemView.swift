@@ -41,6 +41,13 @@ struct ScanSaveItemView: View {
             actions: { Button("OK", role: .cancel) { viewModel.error = nil } },
             message: { Text(viewModel.error?.message ?? "") }
         )
+        // A sheet, not an alert: hitting the free cap is an offer, and an
+        // alert with an OK button gives someone nothing to act on. Dismissing
+        // returns them to this form with everything they typed intact, so
+        // the work isn't lost while they decide.
+        .sheet(item: $viewModel.paywallReason) { reason in
+            PaywallView(reason: reason)
+        }
         .onAppear {
             if viewModel.name.isEmpty { isNameFocused = true }
         }

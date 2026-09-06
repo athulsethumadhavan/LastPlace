@@ -50,6 +50,12 @@ struct GiftsView: View {
             actions: { Button("OK", role: .cancel) { viewModel.actionError = nil } },
             message: { Text(viewModel.actionError?.message ?? "") }
         )
+        // Shown when accepting is refused because this account's free-tier
+        // inventory is full. The gift stays pending and the sender keeps
+        // their item, so dismissing this loses nothing.
+        .sheet(item: $viewModel.paywallReason) { reason in
+            PaywallView(reason: reason)
+        }
         .confirmationDialog(
             "Decline this gift?",
             isPresented: Binding(

@@ -20,9 +20,16 @@ final class GiftItemViewModel {
     private(set) var isSending: Bool = false
     var sendError: UserFacingError?
     private(set) var sentGift: ItemGift?
+    /// Set instead of `sendError` when sending is refused for lack of a
+    /// subscription — an offer, not a failure, so the view shows the paywall
+    /// rather than an alert.
+    var paywallReason: PaywallReason?
 
     private let fetchDetailUseCase: FetchItemDetailUseCase
     private let itemGiftingService: ItemGiftingService
+    /// Gates sending. Receiving stays free, so this is only consulted on
+    /// the send path.
+    private let entitlementService: EntitlementService
     /// See `send()` -- the `gift_item` RPC validates item ownership
     /// server-side, so an item that exists only in local SwiftData has to
     /// be pushed first.
@@ -36,6 +43,7 @@ final class GiftItemViewModel {
         itemID: UUID,
         fetchDetail: FetchItemDetailUseCase,
         itemGiftingService: ItemGiftingService,
+        entitlementService: EntitlementService,
         syncEngine: PendingChangesSyncing,
         authService: AuthService,
         imageStorage: ImageStorageService,
@@ -45,6 +53,7 @@ final class GiftItemViewModel {
         self.itemID = itemID
         self.fetchDetailUseCase = fetchDetail
         self.itemGiftingService = itemGiftingService
+        self.entitlementService = entitlementService
         self.syncEngine = syncEngine
         self.authService = authService
         self.imageStorage = imageStorage
@@ -75,6 +84,24 @@ final class GiftItemViewModel {
         sendError = nil
         Task {
             defer { isSending = false }
+
+            // Sending is premium; receiving is always free. Checked before
+            // the sync below rather than after, so a free account doesn't
+            // pay the cost of a full push just to be refused.
+            //
+            // Note this gate is currently client-side only. `gift_item` has
+            // no entitlement check of its own, unlike the item cap and AI
+            // naming — both of those protect something concrete (the
+            // database's integrity, your Anthropic bill), whereas bypassing
+            // this one costs nothing and requires hand-crafting an RPC call.
+            // Worth adding to `gift_item` before launch, but it isn't the
+            // hole the other two would have been.
+            guard await entitlementService.statusOrFree().isPremium else {
+                logger.log("Gift send blocked: no active entitlement", category: "gifting")
+                paywallReason = .sendGift
+                return
+            }
+
             do {
                 // Same reason as `GiftsViewModel.accept` -- an item saved
                 // moments ago exists only locally until a sync runs, and

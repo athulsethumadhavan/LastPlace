@@ -99,6 +99,27 @@ protocol ItemGiftingService: Sendable {
     /// Sender-only. Withdraws a gift that hasn't been resolved yet.
     func cancelGift(_ giftID: UUID) async throws
 
+    /// Recipient-side, best-effort. Tells the sender their gift can't be
+    /// accepted because this account's free-tier inventory is full —
+    /// otherwise their item sits pending indefinitely with no explanation.
+    ///
+    /// Deliberately a separate call rather than something `acceptGift` does
+    /// on the way out: the server refuses by raising, which aborts the
+    /// transaction, and `dispatch_notification` queues through `pg_net` — a
+    /// table write that would roll back with it. The notification would be
+    /// discarded exactly when it matters.
+    ///
+    /// The server re-derives every fact (gift is pending, addressed to the
+    /// caller, caller genuinely at their cap) and only fires once per gift,
+    /// so repeated taps can't spam the sender and nobody can fake it.
+    ///
+    /// Returns whether a notification was actually sent; callers can ignore
+    /// it, and should never surface a failure here — the person has already
+    /// been shown a paywall and doesn't need a second message about
+    /// something they didn't ask for.
+    @discardableResult
+    func notifySenderInventoryFull(giftID: UUID) async -> Bool
+
     /// Recipient-only. Marks a pending gift declined.
     func declineGift(_ giftID: UUID) async throws
 

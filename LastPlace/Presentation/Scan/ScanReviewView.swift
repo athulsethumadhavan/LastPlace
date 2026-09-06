@@ -31,6 +31,7 @@ struct ScanReviewView: View {
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 16) {
+                            slotWarning
                             ForEach(coordinator.captures) { capture in
                                 captureCard(capture)
                             }
@@ -132,6 +133,49 @@ struct ScanReviewView: View {
         .padding(.bottom, 8)
         .background(.bar)
         .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+
+    /// Warns before the fact when there are more photos here than free
+    /// slots left to save them into.
+    ///
+    /// Shown only when it actually bites — captures exceeding the remaining
+    /// allowance — rather than on every scan. A permanent counter here would
+    /// put a meter in front of the app's main action, and someone with eight
+    /// slots and two photos has nothing to plan around.
+    ///
+    /// Nothing is lost either way: saves are gated one at a time, and a
+    /// refused save leaves its photo sitting in this list. This just means
+    /// the person finds out before working through them, not during.
+    @ViewBuilder
+    private var slotWarning: some View {
+        if let remaining = coordinator.remainingItemSlots,
+           coordinator.captures.count > remaining {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: remaining == 0 ? "exclamationmark.circle" : "info.circle")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(AppColor.accent)
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(remaining == 0
+                         ? "No free item slots left"
+                         : "Room for \(remaining) more \(remaining == 1 ? "item" : "items")")
+                        .font(AppFont.body(13.5, weight: .semibold))
+                        .foregroundStyle(AppColor.textPrimary)
+
+                    Text(remaining == 0
+                         ? "You've used all \(EntitlementStatus.freeItemLimit) free items. Your photos stay here until you upgrade or free up space."
+                         : "You have \(coordinator.captures.count) photos. Save the ones you want most first — the rest stay here.")
+                        .font(AppFont.body(11.5))
+                        .foregroundStyle(AppColor.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(AppColor.cardBackground, in: RoundedRectangle(cornerRadius: AppMetrics.cardRadius, style: .continuous))
+        }
     }
 
     private func captureCard(_ capture: ScanCoordinator.ScanCapture) -> some View {

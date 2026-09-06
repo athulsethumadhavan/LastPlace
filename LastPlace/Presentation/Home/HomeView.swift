@@ -8,6 +8,10 @@ import SwiftUI
 struct HomeView: View {
     let coordinator: HomeCoordinator
     @State private var viewModel: HomeViewModel
+    /// Presented from the usage banner. Local to the view rather than the
+    /// view model -- nothing here needs to survive a reload, and the banner
+    /// is the only thing that opens it.
+    @State private var paywallReason: PaywallReason?
 
     init(coordinator: HomeCoordinator, viewModel: HomeViewModel) {
         self.coordinator = coordinator
@@ -33,6 +37,9 @@ struct HomeView: View {
             if showsFloatingAddRoomButton {
                 addRoomButton
             }
+        }
+        .sheet(item: $paywallReason) { reason in
+            PaywallView(reason: reason)
         }
     }
 
@@ -120,6 +127,9 @@ struct HomeView: View {
                 if !content.recentItems.isEmpty {
                     itemsSection(title: "Recently updated", items: content.recentItems)
                 }
+                if let usage = content.itemUsage, usage.isWorthShowing {
+                    itemUsageBanner(usage)
+                }
                 roomsSection(content.rooms)
                 if !content.sharedRooms.isEmpty {
                     sharedRoomsSection(content.sharedRooms)
@@ -131,6 +141,48 @@ struct HomeView: View {
             // button to not sit on top of the last row once scrolled down.
             .padding(.bottom, 100)
         }
+    }
+
+    /// Free-tier usage, shown only in the last few slots (see
+    /// `ItemUsage.isWorthShowing`). A counter visible from the first item
+    /// would turn the app's main screen into a meter and make the free tier
+    /// read as a trial; appearing near the limit is information, appearing
+    /// always is pressure.
+    ///
+    /// Tappable rather than decorative, so someone can see what upgrading
+    /// covers before they hit the wall mid-scan.
+    private func itemUsageBanner(_ usage: ItemUsage) -> some View {
+        Button {
+            paywallReason = .itemLimitReached
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: usage.isExhausted ? "exclamationmark.circle" : "chart.pie")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(AppColor.accent)
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(usage.label)
+                        .font(AppFont.body(13.5, weight: .semibold))
+                        .foregroundStyle(AppColor.textPrimary)
+                    Text(usage.isExhausted
+                         ? "Upgrade to add more."
+                         : "Rooms and sharing stay free.")
+                        .font(AppFont.body(11.5))
+                        .foregroundStyle(AppColor.textSecondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(AppColor.textTertiary)
+                    .accessibilityHidden(true)
+            }
+            .padding(14)
+            .background(AppColor.cardBackground, in: RoundedRectangle(cornerRadius: AppMetrics.cardRadius, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 20)
+        .padding(.bottom, 4)
     }
 
     private func itemsSection(title: String, items: [StoredItem]) -> some View {

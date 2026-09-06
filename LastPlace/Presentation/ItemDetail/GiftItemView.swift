@@ -28,6 +28,11 @@ struct GiftItemView: View {
         .task {
             if case .idle = viewModel.state { await viewModel.load() }
         }
+        // Sending is premium. Dismissing returns here with the recipient's
+        // address still typed, so nothing is lost while they decide.
+        .sheet(item: $viewModel.paywallReason) { reason in
+            PaywallView(reason: reason)
+        }
         .onAppear { isEmailFocused = true }
     }
 
