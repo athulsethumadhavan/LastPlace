@@ -48,6 +48,7 @@ struct AuthView: View {
                             .focused($focusedField, equals: .fullName)
                             .submitLabel(.next)
                             .onSubmit { focusedField = .email }
+                            .accessibilityIdentifier("authFullNameField")
                     }
                 }
 
@@ -60,6 +61,7 @@ struct AuthView: View {
                         .focused($focusedField, equals: .email)
                         .submitLabel(.next)
                         .onSubmit { focusedField = .password }
+                        .accessibilityIdentifier("authEmailField")
                 }
 
                 fieldGroup(title: "Password") {
@@ -74,6 +76,7 @@ struct AuthView: View {
                                 viewModel.submit()
                             }
                         }
+                        .accessibilityIdentifier("authPasswordField")
                 }
 
                 if viewModel.mode == .signIn {
@@ -95,6 +98,7 @@ struct AuthView: View {
                             .focused($focusedField, equals: .confirmPassword)
                             .submitLabel(.go)
                             .onSubmit { viewModel.submit() }
+                            .accessibilityIdentifier("authConfirmPasswordField")
                     }
                     if viewModel.passwordMismatch {
                         Text("Passwords don't match.")

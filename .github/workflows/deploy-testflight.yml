@@ -1,0 +1,145 @@
+name: Deploy - TestFlight
+
+# Fires after ANY merge (or admin direct push) lands on main -- a `push`
+# event covers both "dev merged into main through a PR" and "an admin
+# pushed straight to main", so this one workflow satisfies "upload a new
+# build to TestFlight once merge completed" for both of the ways main is
+# allowed to change (see CI_CD_SETUP.md).
+#
+# PLACEHOLDER SECRETS: none of the secrets this workflow references exist
+# yet -- there is no real Apple Developer / App Store Connect account wired
+# up. The `check-secrets` job below detects that and skips the upload with
+# a clear warning instead of failing noisily, so merging to main stays safe
+# before these are configured. See CI_CD_SETUP.md for exactly what
+# each secret is and how to generate it.
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-testflight
+  cancel-in-progress: false
+
+jobs:
+  check-secrets:
+    name: Check TestFlight secrets are configured
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - id: check
+        run: |
+          if [ -n "${{ secrets.APP_STORE_CONNECT_KEY_ID }}" ] && \
+             [ -n "${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}" ] && \
+             [ -n "${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}" ] && \
+             [ -n "${{ secrets.BUILD_CERTIFICATE_BASE64 }}" ] && \
+             [ -n "${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}" ] && \
+             [ -n "${{ secrets.APPLE_TEAM_ID }}" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::TestFlight secrets aren't configured yet, so this push won't produce a TestFlight build. See CI_CD_SETUP.md for the secrets to add (APPLE_TEAM_ID, APP_STORE_CONNECT_KEY_ID, APP_STORE_CONNECT_ISSUER_ID, APP_STORE_CONNECT_API_KEY_BASE64, BUILD_CERTIFICATE_BASE64, BUILD_CERTIFICATE_PASSWORD, BUILD_PROVISION_PROFILE_BASE64, KEYCHAIN_PASSWORD)."
+          fi
+
+  build-and-upload:
+    name: Archive, export, and upload to TestFlight
+    needs: check-secrets
+    if: needs.check-secrets.outputs.configured == 'true'
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Import signing certificate and provisioning profile
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          BUILD_CERTIFICATE_PASSWORD: ${{ secrets.BUILD_CERTIFICATE_PASSWORD }}
+          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          CERT_PATH="$RUNNER_TEMP/build_certificate.p12"
+          PROFILE_PATH="$RUNNER_TEMP/build_profile.mobileprovision"
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+
+          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o "$CERT_PATH"
+          echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o "$PROFILE_PATH"
+
+          # A temporary, CI-only keychain -- never the runner's login
+          # keychain -- so this leaves nothing behind for the next job.
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -P "$BUILD_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH" login.keychain
+
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          PROFILE_UUID=$(security cms -D -i "$PROFILE_PATH" | plutil -extract UUID xml1 -o - - | sed -n 's/.*<string>\(.*\)<\/string>.*/\1/p')
+          cp "$PROFILE_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
+
+      - name: Write the App Store Connect API key
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo -n "$APP_STORE_CONNECT_API_KEY_BASE64" | base64 --decode \
+            -o ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8
+
+      - name: Generate ExportOptions.plist
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>teamID</key>
+            <string>${APPLE_TEAM_ID}</string>
+            <key>signingStyle</key>
+            <string>automatic</string>
+            <key>uploadSymbols</key>
+            <true/>
+          </dict>
+          </plist>
+          PLIST
+
+      - name: Archive
+        run: |
+          xcodebuild archive \
+            -project LastPlace.xcodeproj \
+            -scheme LastPlace \
+            -configuration Release \
+            -archivePath "$RUNNER_TEMP/LastPlace.xcarchive" \
+            -destination "generic/platform=iOS" \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}"
+
+      - name: Export .ipa
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/LastPlace.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export"
+
+      - name: Upload to TestFlight
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          IPA_PATH=$(find "$RUNNER_TEMP/export" -name "*.ipa" | head -n 1)
+          xcrun altool --upload-app \
+            --type ios \
+            --file "$IPA_PATH" \
+            --apiKey "$APP_STORE_CONNECT_KEY_ID" \
+            --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
+
+      - name: Clean up temporary keychain
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/app-signing.keychain-db" || true

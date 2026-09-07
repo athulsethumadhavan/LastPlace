@@ -1,0 +1,161 @@
+name: CI - Feature Branch to Dev
+
+# PR requirements enforced here (see CI_CD_SETUP.md for the full
+# picture, including the parts that are repo *settings* rather than
+# workflow steps):
+#   1. Check all test cases       -> `test` job
+#   2. Check all analysis         -> `analyze` job
+#   3. Delete branch after push   -> `delete-merged-branch` job
+#   4. No PR merge from main to dev, only dev to main is allowed
+#                                  -> `guard-source-branch` job
+
+on:
+  pull_request:
+    branches: [dev]
+    types: [opened, synchronize, reopened, closed]
+
+concurrency:
+  group: ci-feature-to-dev-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  guard-source-branch:
+    name: Block main -> dev PRs
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reject main as a source branch
+        if: github.head_ref == 'main'
+        run: |
+          echo "::error::Pull requests from 'main' into 'dev' are not allowed."
+          echo "::error::Only 'dev' may ever be merged into 'main' -- main is never merged back into dev through a PR."
+          exit 1
+      - name: Source branch OK
+        if: github.head_ref != 'main'
+        run: echo "Source branch '${{ github.head_ref }}' is allowed to target dev."
+
+  test:
+    name: Run all tests
+    needs: guard-source-branch
+    if: github.event.action != 'closed'
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show available Xcode versions
+        run: ls /Applications | grep Xcode
+
+      - name: Resolve a simulator destination
+        id: destination
+        run: |
+          # Prefers a currently-installed iPhone 16 simulator on whatever OS
+          # version the runner image ships; falls back to the first
+          # available iPhone simulator if that exact model isn't present, so
+          # this survives the runner image changing its default devices.
+          set -euo pipefail
+          RAW=$(xcrun simctl list devices available -j)
+          UDID=$(echo "$RAW" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)["devices"]
+candidates = []
+for runtime, devices in data.items():
+    if "iOS" not in runtime:
+        continue
+    for d in devices:
+        candidates.append((d["name"] == "iPhone 16", d["udid"]))
+candidates.sort(key=lambda c: c[0], reverse=True)
+print(candidates[0][1] if candidates else "")
+')
+          if [ -z "$UDID" ]; then
+            echo "::error::No available iOS simulator found on this runner."
+            exit 1
+          fi
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      - name: Run unit + UI tests (LastPlaceTests, LastPlaceUITests)
+        run: |
+          xcodebuild test \
+            -project LastPlace.xcodeproj \
+            -scheme LastPlace \
+            -destination "platform=iOS Simulator,id=${{ steps.destination.outputs.udid }}" \
+            -resultBundlePath TestResults.xcresult
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults.xcresult
+          retention-days: 14
+
+  analyze:
+    name: Run static analysis
+    needs: guard-source-branch
+    if: github.event.action != 'closed'
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve a simulator destination
+        id: destination
+        run: |
+          set -euo pipefail
+          RAW=$(xcrun simctl list devices available -j)
+          UDID=$(echo "$RAW" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)["devices"]
+candidates = []
+for runtime, devices in data.items():
+    if "iOS" not in runtime:
+        continue
+    for d in devices:
+        candidates.append((d["name"] == "iPhone 16", d["udid"]))
+candidates.sort(key=lambda c: c[0], reverse=True)
+print(candidates[0][1] if candidates else "")
+')
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      - name: Run the Clang static analyzer
+        run: |
+          set -o pipefail
+          xcodebuild analyze \
+            -project LastPlace.xcodeproj \
+            -scheme LastPlace \
+            -destination "platform=iOS Simulator,id=${{ steps.destination.outputs.udid }}" \
+            CODE_SIGNING_ALLOWED=NO \
+            | tee analyze.log
+
+      - name: Fail if the analyzer found anything
+        run: |
+          if grep -q "warning:" analyze.log; then
+            echo "::error::The static analyzer reported issues -- see the log above."
+            grep "warning:" analyze.log
+            exit 1
+          fi
+          echo "No static analysis findings."
+
+      # Optional next step for this project: add a `.swiftlint.yml` and a
+      # `brew install swiftlint && swiftlint` step here for style/lint rules
+      # beyond what the Clang analyzer catches. Not wired in yet since the
+      # repo doesn't have a SwiftLint config to run against.
+
+  delete-merged-branch:
+    name: Delete branch after merge
+    if: github.event.action == 'closed' && github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Delete the merged head branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_BRANCH: ${{ github.head_ref }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ "$HEAD_BRANCH" = "main" ] || [ "$HEAD_BRANCH" = "dev" ]; then
+            echo "Refusing to delete protected branch '$HEAD_BRANCH'."
+            exit 0
+          fi
+          gh api -X DELETE "repos/$REPO/git/refs/heads/$HEAD_BRANCH" \
+            && echo "Deleted branch '$HEAD_BRANCH'." \
+            || echo "Branch '$HEAD_BRANCH' was already gone (e.g. deleted by the repo's own auto-delete setting) -- nothing to do."

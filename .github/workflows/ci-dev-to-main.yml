@@ -1,0 +1,84 @@
+name: CI - Dev to Main
+
+# PR requirements enforced here (see CI_CD_SETUP.md for the full
+# picture, including the parts that are repo *settings* rather than
+# workflow steps -- in particular, "admins can update main without a PR" is
+# a branch-protection setting, not something this workflow can express,
+# since a direct push never triggers a pull_request event at all):
+#   1. main can be updated only from dev through a PR. No other branch may
+#      target main.                    -> `guard-source-branch` job
+#   2. Every test must pass.           -> `test` job
+#
+# The TestFlight upload lives in `deploy-testflight.yml`, triggered by the
+# `push` to `main` that a merge (or an admin's direct push) produces --
+# not by this workflow -- so a build only ever gets uploaded once the merge
+# has actually completed, matching requirement #3 for this PR direction.
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: ci-dev-to-main-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  guard-source-branch:
+    name: Require dev as the only source branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reject any source branch other than dev
+        if: github.head_ref != 'dev'
+        run: |
+          echo "::error::Only the 'dev' branch may open a pull request into 'main'."
+          echo "::error::This PR's source branch is '${{ github.head_ref }}', which is not allowed."
+          exit 1
+      - name: Source branch OK
+        run: echo "'dev' is opening this PR into main -- allowed."
+
+  test:
+    name: Run all tests
+    needs: guard-source-branch
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve a simulator destination
+        id: destination
+        run: |
+          set -euo pipefail
+          RAW=$(xcrun simctl list devices available -j)
+          UDID=$(echo "$RAW" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)["devices"]
+candidates = []
+for runtime, devices in data.items():
+    if "iOS" not in runtime:
+        continue
+    for d in devices:
+        candidates.append((d["name"] == "iPhone 16", d["udid"]))
+candidates.sort(key=lambda c: c[0], reverse=True)
+print(candidates[0][1] if candidates else "")
+')
+          if [ -z "$UDID" ]; then
+            echo "::error::No available iOS simulator found on this runner."
+            exit 1
+          fi
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      - name: Run unit + UI tests (LastPlaceTests, LastPlaceUITests)
+        run: |
+          xcodebuild test \
+            -project LastPlace.xcodeproj \
+            -scheme LastPlace \
+            -destination "platform=iOS Simulator,id=${{ steps.destination.outputs.udid }}" \
+            -resultBundlePath TestResults.xcresult
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-dev-to-main
+          path: TestResults.xcresult
+          retention-days: 14

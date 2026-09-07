@@ -47,7 +47,20 @@ private final class AppBootstrap {
         if case .failed = state { return }
 
         do {
-            let container = try AppDependencyContainer.makeDefault()
+            let container: AppDependencyContainer
+            #if DEBUG
+            // `UITestingSupport` only kicks in when `LastPlaceUITests` passes
+            // `-uiTesting` on launch (see its doc comment); a normal Debug
+            // run from Xcode falls straight through to `makeDefault()`, same
+            // as Release.
+            if let uiTestingContainer = UITestingSupport.makeContainerIfNeeded() {
+                container = uiTestingContainer
+            } else {
+                container = try AppDependencyContainer.makeDefault()
+            }
+            #else
+            container = try AppDependencyContainer.makeDefault()
+            #endif
             let coordinator = AppCoordinator(container: container)
             state = .ready(container, coordinator)
         } catch {

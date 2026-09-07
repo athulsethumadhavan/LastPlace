@@ -146,8 +146,6 @@
 				Domain/UseCases/Items/FetchItemsForRoomUseCase.swift,
 				Domain/UseCases/Items/FetchRecentItemsUseCase.swift,
 				Domain/UseCases/Items/MoveItemToRoomUseCase.swift,
-				Domain/UseCases/Items/SaveItemUseCase.swift,
-				Domain/UseCases/Items/SearchItemsUseCase.swift,
 				Domain/UseCases/Items/ToggleItemImportanceUseCase.swift,
 				Domain/UseCases/Items/UpdateItemLocationUseCase.swift,
 				Domain/UseCases/Rooms/CreateRoomUseCase.swift,

@@ -77,8 +77,8 @@ final class HomeViewModel {
                 rooms: rooms,
                 recentItems: recent,
                 importantItems: important,
-                sharedRooms: await sharedTask,
-                itemUsage: await usageTask
+                itemUsage: await usageTask,
+                sharedRooms: await sharedTask
             )
             state = .loaded(content)
         } catch {
