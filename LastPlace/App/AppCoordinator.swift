@@ -9,6 +9,7 @@
 
 import Foundation
 import Observation
+import RevenueCat
 
 @Observable
 @MainActor
@@ -56,6 +57,10 @@ final class AppCoordinator {
         // all. Again this must complete before `flow` mounts the tabs, or
         // Home renders the previous account's data and never reloads.
         await prepareLocalStore(for: currentUser.id)
+        // Same reasoning as `prepareLocalStore` above -- a restored session
+        // never goes through `completeSignIn`, so this is the only place a
+        // launch-time restore ties RevenueCat to the right account.
+        await syncRevenueCatUser(currentUser.id)
         flow = shouldLock ? .locked : .main
         // A returning, already-signed-in user -- (re)register for remote
         // notifications on every launch, not just the first sign-in, so a
@@ -100,6 +105,7 @@ final class AppCoordinator {
             // wipe is local-only and fast, so gating the transition on it
             // costs nothing perceptible.
             await prepareLocalStore(for: user.id)
+            await syncRevenueCatUser(user.id)
             flow = shouldLock ? .locked : .main
 
             try? await container.syncEngine.sync(userID: user.id, imageStorage: container.imageStorage)
@@ -158,6 +164,37 @@ final class AppCoordinator {
         }
     }
 
+    /// Ties this device's RevenueCat customer record to the same account ID
+    /// the `entitlements` table's `user_id` column uses, by logging in with
+    /// it as RevenueCat's `appUserID` -- otherwise RevenueCat only knows this
+    /// device by an anonymous ID it generated itself, and the webhook that
+    /// writes `entitlements` after a purchase has nothing to match against.
+    ///
+    /// Called from both `start()` (a restored session) and `completeSignIn()`
+    /// (a fresh one) -- whichever runs first for a given launch, `logIn` is
+    /// idempotent for the same ID, so calling it again from the other path
+    /// later is harmless.
+    ///
+    /// Best-effort, like `registerPushTokenIfAvailable` below: a failure here
+    /// shouldn't block sign-in from completing. Worst case, a purchase made
+    /// before this succeeds attaches to RevenueCat's anonymous ID instead of
+    /// this account -- recoverable via `Purchases.shared.restorePurchases()`,
+    /// same safety net a reinstall relies on.
+    ///
+    /// VERIFY-BEFORE-TRUST: written without a compiler available in this
+    /// session, same caveat as `SupabaseAuthService`. `Purchases.shared
+    /// .logIn(_:)` returning `(customerInfo: CustomerInfo, created: Bool)`
+    /// and being `async throws` matches the RevenueCat SDK's documented
+    /// async surface, but hasn't been built against the actual package
+    /// target here -- confirm once Xcode has it.
+    private func syncRevenueCatUser(_ userID: UUID) async {
+        do {
+            _ = try await Purchases.shared.logIn(userID.uuidString)
+        } catch {
+            container.logger.error("RevenueCat logIn failed", error: error, category: "entitlements")
+        }
+    }
+
     private func prepareLocalStore(for userID: UUID) async {
         // Same decision `sync` makes, deliberately shared rather than
         // reimplemented -- an earlier version had its own weaker copy of
@@ -194,6 +231,20 @@ final class AppCoordinator {
         flow = .authRequired
         Task {
             await container.syncEngine.wipeLocalData(imageStorage: container.imageStorage)
+            // Resets RevenueCat back to a fresh anonymous ID, mirroring the
+            // local wipe above -- without this, the *next* person to sign
+            // in on this device would inherit whatever `appUserID` the
+            // previous account left logged in, and a purchase made before
+            // their own `syncRevenueCatUser` call completed would attach to
+            // the wrong account. Best-effort, same reasoning as
+            // `syncRevenueCatUser`: a failure here just means this device's
+            // RevenueCat ID stays as it was, which the next sign-in's
+            // `logIn` call corrects anyway.
+            do {
+                _ = try await Purchases.shared.logOut()
+            } catch {
+                container.logger.error("RevenueCat logOut failed", error: error, category: "entitlements")
+            }
         }
     }
 

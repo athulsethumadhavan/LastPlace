@@ -31,11 +31,23 @@ struct HomeView: View {
         }
         .task {
             if case .idle = viewModel.state { await viewModel.load() }
+            TrackingPermission.requestIfNeeded()
         }
         .refreshable { await viewModel.refresh() }
+        // Applied before the safe-area inset below so the button's
+        // bottom-trailing position is relative to the content area alone --
+        // it floats above the ad strip, never on top of it.
         .overlay(alignment: .bottomTrailing) {
             if showsFloatingAddRoomButton {
                 addRoomButton
+            }
+        }
+        // Reserves its own full-width strip below everything else, the
+        // same way a tab bar would -- content above adjusts so nothing
+        // ends up hidden behind it.
+        .safeAreaInset(edge: .bottom) {
+            if showsBannerAd {
+                BannerAdView()
             }
         }
         .sheet(item: $paywallReason) { reason in
@@ -59,6 +71,20 @@ struct HomeView: View {
     /// just be clutter.
     private var showsFloatingAddRoomButton: Bool {
         if case .loaded(let content) = viewModel.state { return !content.isFullyEmpty }
+        return false
+    }
+
+    /// Free tier only -- "no ads" is one of `PaywallView`'s listed premium
+    /// benefits, not just an incidental side effect, so this gate is doing
+    /// that on purpose. `itemUsage` is nil for a premium account (see
+    /// `HomeDashboardContent`'s doc comment) -- reusing that existing
+    /// signal instead of asking `EntitlementService` directly here keeps
+    /// this view's dependencies exactly what they already were. It's also
+    /// nil when the usage lookup itself failed, which just means a free
+    /// user occasionally misses seeing an ad rather than a premium account
+    /// ever seeing one -- the safe direction for that ambiguity to fail in.
+    private var showsBannerAd: Bool {
+        if case .loaded(let content) = viewModel.state { return content.itemUsage != nil }
         return false
     }
 

@@ -11,6 +11,11 @@ struct SettingsView: View {
     @State private var appearance: AppearanceViewModel
     @State private var account: AccountViewModel
     @State private var showingDeleteConfirmation = false
+    /// Opens `PaywallView(reason: .upgrade)` from the "Go Premium" card
+    /// below. Local to the view, same as the identical property on
+    /// `HomeView` -- nothing here needs to survive a reload, and this card
+    /// is the only thing on this screen that opens it.
+    @State private var paywallReason: PaywallReason?
 
     init(coordinator: SettingsCoordinator) {
         self.coordinator = coordinator
@@ -24,6 +29,15 @@ struct SettingsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     accountHeader
+                        .padding(.bottom, 22)
+
+                    // Not gated on current entitlement status -- a premium
+                    // account still sees this for now rather than the
+                    // screen doing an extra async lookup just to hide one
+                    // card. Revisit once RevenueCat lands and premium
+                    // status is already sitting in state here for other
+                    // reasons.
+                    premiumCard
                         .padding(.bottom, 22)
 
                     sectionLabel("General")
@@ -120,6 +134,52 @@ struct SettingsView: View {
             actions: { Button("OK", role: .cancel) { account.errorMessage = nil } },
             message: { Text(account.errorMessage ?? "") }
         )
+        .sheet(item: $paywallReason) { reason in
+            PaywallView(reason: reason)
+        }
+    }
+
+    /// A promotional entry point, not a `SettingsRow` -- it's the one row
+    /// on this screen trying to sell something rather than let someone
+    /// configure it, so it gets its own visual treatment (gradient, crown)
+    /// instead of blending into a plain list the way every other row does.
+    private var premiumCard: some View {
+        Button {
+            paywallReason = .upgrade
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "crown.fill")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 44, height: 44)
+                    .background(.white.opacity(0.22), in: Circle())
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Go Premium")
+                        .font(AppFont.body(16, weight: .semibold))
+                        .foregroundStyle(.white)
+                    Text("Unlimited everything, no ads")
+                        .font(AppFont.body(13))
+                        .foregroundStyle(.white.opacity(0.85))
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.85))
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity)
+            .background(
+                LinearGradient(
+                    colors: [Color.orange, Color.pink],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                in: RoundedRectangle(cornerRadius: AppMetrics.cardRadius, style: .continuous)
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     /// Replaces the pushed Account screen, which held nothing but an email

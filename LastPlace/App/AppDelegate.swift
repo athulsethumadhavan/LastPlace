@@ -25,6 +25,8 @@ import GoogleSignIn
 import UserNotifications
 import FirebaseCore
 import FirebaseMessaging
+import GoogleMobileAds
+import RevenueCat
 
 final class AppDelegate: NSObject, UIApplicationDelegate {
     func application(
@@ -36,7 +38,16 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         FirebaseApp.configure()
         Messaging.messaging().delegate = self
         UNUserNotificationCenter.current().delegate = self
+
+        // Reads `GADApplicationIdentifier` from Info.plist. Safe to call
+        // unconditionally at launch -- unlike loading an actual ad, this
+        // doesn't need App Tracking Transparency to have been asked yet.
+        MobileAds.shared.start(completionHandler: nil)
+        Purchases.logLevel = .debug
+        Purchases.configure(withAPIKey: "appl_xwQuUdvqexHYYeoLeaTRItNCaSE")
+
         return true
+        
     }
 
     /// Google's consent flow completes by reopening the app via the custom

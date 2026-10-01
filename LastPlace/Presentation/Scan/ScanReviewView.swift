@@ -191,11 +191,19 @@ struct ScanReviewView: View {
 
             detectionsList(for: capture)
 
-            HStack(spacing: 12) {
+            // FlowLayout (below) rather than HStack: three buttons plus icons
+            // don't reliably fit one row at every Dynamic Type size / device
+            // width. An HStack would rather shrink "Add Manually" — the
+            // widest label — into a wrapped, hyphenated two-line mess than
+            // give it its natural width. Wrapping whole buttons onto a new
+            // row instead keeps every label on one line, same as the
+            // detection chips above already do.
+            FlowLayout(spacing: 12) {
                 Button(role: .destructive) {
                     coordinator.deleteCapture(capture.id)
                 } label: {
                     Label("Delete", systemImage: "trash")
+                        .fixedSize()
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
@@ -205,6 +213,7 @@ struct ScanReviewView: View {
                     coordinator.goToCapture()
                 } label: {
                     Label("Retake", systemImage: "arrow.clockwise")
+                        .fixedSize()
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
@@ -230,12 +239,11 @@ struct ScanReviewView: View {
                     )
                 } label: {
                     Label("Add Manually", systemImage: "square.and.pencil")
+                        .fixedSize()
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
                 .disabled(capture.isDetecting)
-
-                Spacer()
             }
         }
         .padding(12)

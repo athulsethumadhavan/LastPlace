@@ -72,6 +72,11 @@ enum PaywallReason: String, Identifiable, Equatable, Sendable {
     case sendGift
     /// A gift they can't accept because their inventory is full.
     case acceptGiftAtLimit
+    /// Opened proactively from the "Go Premium" card in Settings, rather
+    /// than because something just got blocked. The only case with nothing
+    /// to explain -- there's no wall to describe, so the copy sells rather
+    /// than justifies.
+    case upgrade
 
     var title: String {
         switch self {
@@ -79,6 +84,7 @@ enum PaywallReason: String, Identifiable, Equatable, Sendable {
         case .aiIdentification:  return "Smart naming is a premium feature"
         case .sendGift:          return "Sending items is a premium feature"
         case .acceptGiftAtLimit: return "No room for this gift yet"
+        case .upgrade:           return "Go Premium"
         }
     }
 
@@ -92,6 +98,20 @@ enum PaywallReason: String, Identifiable, Equatable, Sendable {
             return "Upgrade to send an item to someone else. Receiving items is always free."
         case .acceptGiftAtLimit:
             return "Your \(EntitlementStatus.freeItemLimit) free items are all in use. Upgrade to accept this, or remove an item to make space."
+        case .upgrade:
+            return "Unlock everything LastPlace has to offer for your home."
+        }
+    }
+
+    /// Every reason but `.upgrade` arrives because of a specific gate, so
+    /// `sparkles` fits them all as one generic "premium" glyph. `.upgrade`
+    /// is the one screen someone opens on purpose to see what premium is,
+    /// so it gets the more literal crown -- matching the "Go Premium" card
+    /// in Settings that opens it.
+    var symbolName: String {
+        switch self {
+        case .upgrade: return "crown.fill"
+        default: return "sparkles"
         }
     }
 }

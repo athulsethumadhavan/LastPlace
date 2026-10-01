@@ -12,9 +12,13 @@
 		5970FB6C300C9FC8009FA7B8 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 5970FB6B300C9FC8009FA7B8 /* Supabase */; };
 		5970FB73300CEA0C009FA7B8 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 5970FB72300CEA0C009FA7B8 /* GoogleSignIn */; };
 		5970FB75300CEA0C009FA7B8 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 5970FB74300CEA0C009FA7B8 /* GoogleSignInSwift */; };
+		59BA2C6330510B3600944B96 /* ReceiptParser in Frameworks */ = {isa = PBXBuildFile; productRef = 59BA2C6230510B3600944B96 /* ReceiptParser */; };
+		59BA2C6530510B3600944B96 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = 59BA2C6430510B3600944B96 /* RevenueCat */; };
+		59BA2C6730510B3600944B96 /* RevenueCatUI in Frameworks */ = {isa = PBXBuildFile; productRef = 59BA2C6630510B3600944B96 /* RevenueCatUI */; };
 		59BC672D3008B52F0097DFB1 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 59BC672C3008B52F0097DFB1 /* WidgetKit.framework */; };
 		59BC672F3008B52F0097DFB1 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 59BC672E3008B52F0097DFB1 /* SwiftUI.framework */; };
 		59BC673E3008B5300097DFB1 /* LastPlaceWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 59BC672A3008B52F0097DFB1 /* LastPlaceWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		CD001D718C746B2B68B807CC /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = 5F4A863754A4020F84695C4A /* GoogleMobileAds */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -207,8 +211,12 @@
 				5970FB75300CEA0C009FA7B8 /* GoogleSignInSwift in Frameworks */,
 				5970FB6C300C9FC8009FA7B8 /* Supabase in Frameworks */,
 				597023113014BC43009FA7B8 /* FirebaseMessaging in Frameworks */,
+				59BA2C6330510B3600944B96 /* ReceiptParser in Frameworks */,
+				59BA2C6530510B3600944B96 /* RevenueCat in Frameworks */,
+				59BA2C6730510B3600944B96 /* RevenueCatUI in Frameworks */,
 				5970230F3014BC43009FA7B8 /* FirebaseAnalytics in Frameworks */,
 				5970FB73300CEA0C009FA7B8 /* GoogleSignIn in Frameworks */,
+				CD001D718C746B2B68B807CC /* GoogleMobileAds in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -300,6 +308,10 @@
 				5970FB74300CEA0C009FA7B8 /* GoogleSignInSwift */,
 				5970230E3014BC43009FA7B8 /* FirebaseAnalytics */,
 				597023103014BC43009FA7B8 /* FirebaseMessaging */,
+				5F4A863754A4020F84695C4A /* GoogleMobileAds */,
+				59BA2C6230510B3600944B96 /* ReceiptParser */,
+				59BA2C6430510B3600944B96 /* RevenueCat */,
+				59BA2C6630510B3600944B96 /* RevenueCatUI */,
 			);
 			productName = LastPlace;
 			productReference = 59055C4B3004B14F00C2437B /* LastPlace.app */;
@@ -412,6 +424,8 @@
 				5970FB6A300C9FC8009FA7B8 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 				5970FB71300CEA0C009FA7B8 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 				5970230D3014BC43009FA7B8 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				F4206E68B157D14B117728FD /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */,
+				59BA2C6130510B3600944B96 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 59055C4C3004B14F00C2437B /* Products */;
@@ -638,11 +652,13 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = J766WB3295;
 				ENABLE_PREVIEWS = YES;
+				GAD_APP_ID = "ca-app-pub-3940256099942544~1458002511";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LastPlace/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "LastPlace uses the camera to scan rooms and recognize the items inside them.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "LastPlace uses Face ID to keep your rooms and items locked when the app isn't in use.";
 				INFOPLIST_KEY_NSSiriUsageDescription = "LastPlace uses Siri to find items and add them to your checklists by voice.";
+				INFOPLIST_KEY_NSUserTrackingUsageDescription = "LastPlace uses this to show ads that are more relevant to you. You can decline and everything in the app still works the same.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UIBackgroundModes = "remote-notification";
@@ -677,11 +693,13 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = J766WB3295;
 				ENABLE_PREVIEWS = YES;
+				GAD_APP_ID = "ca-app-pub-3940256099942544~1458002511";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LastPlace/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "LastPlace uses the camera to scan rooms and recognize the items inside them.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "LastPlace uses Face ID to keep your rooms and items locked when the app isn't in use.";
 				INFOPLIST_KEY_NSSiriUsageDescription = "LastPlace uses Siri to find items and add them to your checklists by voice.";
+				INFOPLIST_KEY_NSUserTrackingUsageDescription = "LastPlace uses this to show ads that are more relevant to you. You can decline and everything in the app still works the same.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UIBackgroundModes = "remote-notification";
@@ -927,6 +945,22 @@
 				minimumVersion = 9.2.0;
 			};
 		};
+		59BA2C6130510B3600944B96 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/RevenueCat/purchases-ios-spm.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.88.0;
+			};
+		};
+		F4206E68B157D14B117728FD /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/googleads/swift-package-manager-google-mobile-ads.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 13.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -954,6 +988,26 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 5970FB71300CEA0C009FA7B8 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
 			productName = GoogleSignInSwift;
+		};
+		59BA2C6230510B3600944B96 /* ReceiptParser */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 59BA2C6130510B3600944B96 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */;
+			productName = ReceiptParser;
+		};
+		59BA2C6430510B3600944B96 /* RevenueCat */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 59BA2C6130510B3600944B96 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */;
+			productName = RevenueCat;
+		};
+		59BA2C6630510B3600944B96 /* RevenueCatUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 59BA2C6130510B3600944B96 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */;
+			productName = RevenueCatUI;
+		};
+		5F4A863754A4020F84695C4A /* GoogleMobileAds */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F4206E68B157D14B117728FD /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */;
+			productName = GoogleMobileAds;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
